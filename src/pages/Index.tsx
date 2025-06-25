@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import TranslationHeader from '../components/TranslationHeader';
@@ -9,6 +8,7 @@ import ProjectManager from '../components/ProjectManager';
 import ExportPanel from '../components/ExportPanel';
 import TranslationAnalytics from '../components/TranslationAnalytics';
 import TranslationQuality from '../components/TranslationQuality';
+import LiveTranslationViewer from '../components/LiveTranslationViewer';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
 
@@ -16,6 +16,7 @@ const Index = () => {
   const [currentProject, setCurrentProject] = useState<TranslationProject | null>(null);
   const [projects, setProjects] = useState<TranslationProject[]>([]);
   const [activeTab, setActiveTab] = useState('upload');
+  const [showLiveView, setShowLiveView] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -41,6 +42,7 @@ const Index = () => {
     { id: 'upload', label: 'Upload', icon: '📤' },
     { id: 'projects', label: 'Projects', icon: '📁' },
     { id: 'translate', label: 'Translate', icon: '🔄' },
+    { id: 'live', label: 'Live View', icon: '👁️' },
     { id: 'analytics', label: 'Analytics', icon: '📊' },
     { id: 'quality', label: 'Quality', icon: '⭐' }
   ];
@@ -126,6 +128,39 @@ const Index = () => {
                   whileTap={{ scale: 0.95 }}
                 >
                   View Projects
+                </motion.button>
+              </div>
+            )}
+
+            {activeTab === 'live' && currentProject && (
+              <div>
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-bold text-white mb-4">👁️ Live Translation View</h2>
+                  <p className="text-white/60 text-lg">
+                    Watch your translation progress in real-time
+                  </p>
+                </div>
+                <LiveTranslationViewer 
+                  project={currentProject} 
+                  isActive={activeTab === 'live'}
+                />
+              </div>
+            )}
+
+            {activeTab === 'live' && !currentProject && (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">👁️</div>
+                <h3 className="text-2xl font-bold text-white mb-4">No Project Selected</h3>
+                <p className="text-white/60 text-lg mb-8">
+                  Select a project to view live translation progress
+                </p>
+                <motion.button
+                  onClick={() => setActiveTab('projects')}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Select Project
                 </motion.button>
               </div>
             )}

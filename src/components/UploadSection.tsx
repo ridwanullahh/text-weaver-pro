@@ -2,11 +2,13 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, BookOpen, Settings } from 'lucide-react';
+import { Upload, FileText, BookOpen, Settings, AlertCircle } from 'lucide-react';
 import { TranslationProject, TranslationSettings } from '../types/translation';
 import { dbUtils } from '../utils/database';
+import { fileExtractor } from '../services/fileExtractor';
 import { toast } from '@/hooks/use-toast';
 import APIKeySetup from './APIKeySetup';
+import BookPreview from './BookPreview';
 
 interface UploadSectionProps {
   onProjectCreate: (project: TranslationProject) => void;
@@ -20,6 +22,8 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadMode, setUploadMode] = useState<'file' | 'text'>('file');
   const [showApiSetup, setShowApiSetup] = useState(false);
+  const [extractedMetadata, setExtractedMetadata] = useState<any>(null);
+  const [previewProject, setPreviewProject] = useState<TranslationProject | null>(null);
   const [settings, setSettings] = useState<TranslationSettings>({
     preserveFormatting: true,
     chunkSize: 1000,
@@ -28,15 +32,54 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     contextAware: true
   });
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
       setUploadedFile(file);
       if (!projectName) {
         setProjectName(file.name.split('.')[0]);
       }
+
+      // Extract content and metadata
+      try {
+        setIsProcessing(true);
+        const extracted = await fileExtractor.extractFromFile(file);
+        setTextContent(extracted.text);
+        setExtractedMetadata(extracted.metadata);
+        
+        // Create preview project
+        const preview: TranslationProject = {
+          name: extracted.metadata?.title || file.name.split('.')[0],
+          sourceLanguage,
+          targetLanguages: [],
+          originalContent: extracted.text,
+          fileType: getFileType(file),
+          totalChunks: Math.ceil(extracted.text.length / settings.chunkSize),
+          completedChunks: 0,
+          status: 'pending',
+          progress: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          settings
+        };
+        setPreviewProject(preview);
+        
+        toast({
+          title: "File Processed",
+          description: `Successfully extracted ${extracted.text.length} characters from ${file.name}`,
+        });
+      } catch (error) {
+        console.error('File extraction error:', error);
+        toast({
+          title: "Extraction Failed",
+          description: (error as Error).message,
+          variant: "destructive"
+        });
+      } finally {
+        setIsProcessing(false);
+      }
     }
-  }, [projectName]);
+  }, [projectName, sourceLanguage, settings.chunkSize]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -48,6 +91,13 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     },
     multiple: false
   });
+
+  const getFileType = (file: File): 'text' | 'pdf' | 'docx' | 'epub' => {
+    if (file.type === 'application/pdf') return 'pdf';
+    if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
+    if (file.name.endsWith('.epub')) return 'epub';
+    return 'text';
+  };
 
   const handleCreateProject = async () => {
     if (!projectName || (!uploadedFile && !textContent)) {
@@ -65,31 +115,17 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       let content = textContent;
       let fileType: 'text' | 'pdf' | 'docx' | 'epub' = 'text';
 
-      if (uploadedFile) {
-        // Process file content based on type
-        if (uploadedFile.type === 'text/plain') {
-          content = await uploadedFile.text();
-          fileType = 'text';
-        } else if (uploadedFile.type === 'application/pdf') {
-          // TODO: Implement PDF text extraction
-          content = 'PDF content extraction will be implemented';
-          fileType = 'pdf';
-        } else if (uploadedFile.name.endsWith('.docx')) {
-          // TODO: Implement DOCX text extraction
-          content = 'DOCX content extraction will be implemented';
-          fileType = 'docx';
-        } else if (uploadedFile.name.endsWith('.epub')) {
-          // TODO: Implement EPUB text extraction
-          content = 'EPUB content extraction will be implemented';
-          fileType = 'epub';
-        }
+      if (uploadedFile && !content) {
+        const extracted = await fileExtractor.extractFromFile(uploadedFile);
+        content = extracted.text;
+        fileType = getFileType(uploadedFile);
+        setExtractedMetadata(extracted.metadata);
       }
 
-      // Calculate total chunks based on content length and chunk size
       const totalChunks = Math.ceil(content.length / settings.chunkSize);
 
       const projectData = {
-        name: projectName,
+        name: extractedMetadata?.title || projectName,
         sourceLanguage,
         targetLanguages: [],
         originalContent: content,
@@ -105,7 +141,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       
       toast({
         title: "Project Created",
-        description: `${projectName} has been created successfully!`,
+        description: `${projectData.name} has been created successfully!`,
       });
 
       onProjectCreate(project);
@@ -145,6 +181,11 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         >
           <APIKeySetup />
         </motion.div>
+      )}
+
+      {/* Book Preview */}
+      {previewProject && extractedMetadata && (
+        <BookPreview project={previewProject} metadata={extractedMetadata} />
       )}
 
       {/* Upload Mode Toggle */}
@@ -203,14 +244,36 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
               }`}
             >
               <input {...getInputProps()} />
-              <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
-              {uploadedFile ? (
+              {isProcessing ? (
+                <div className="flex flex-col items-center">
+                  <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+                  <p className="text-white font-medium">Processing file...</p>
+                </div>
+              ) : uploadedFile ? (
                 <div className="text-white">
+                  <FileText className="w-12 h-12 text-green-400 mx-auto mb-4" />
                   <p className="font-medium">{uploadedFile.name}</p>
                   <p className="text-sm text-white/60">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                  {extractedMetadata && (
+                    <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                      {extractedMetadata.wordCount && (
+                        <div className="bg-white/10 rounded-lg p-2">
+                          <div className="text-white/60">Words</div>
+                          <div className="font-medium">{extractedMetadata.wordCount.toLocaleString()}</div>
+                        </div>
+                      )}
+                      {extractedMetadata.pages && (
+                        <div className="bg-white/10 rounded-lg p-2">
+                          <div className="text-white/60">Pages</div>
+                          <div className="font-medium">{extractedMetadata.pages}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-white/80">
+                  <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
                   <p className="text-lg font-medium">Drop your file here</p>
                   <p className="text-sm text-white/60">Supports TXT, PDF, DOCX, EPUB</p>
                 </div>
@@ -223,6 +286,19 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
               placeholder="Paste or type your text here..."
               className="w-full h-64 bg-white/5 border border-white/20 rounded-2xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
             />
+          )}
+
+          {/* Processing Status */}
+          {textContent && (
+            <div className="mt-4 bg-blue-500/20 border border-blue-500/30 rounded-xl p-3">
+              <div className="flex items-center gap-2 text-blue-300 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                <span>
+                  {textContent.length.toLocaleString()} characters • 
+                  {Math.ceil(textContent.length / settings.chunkSize)} chunks will be created
+                </span>
+              </div>
+            </div>
           )}
         </motion.div>
 
@@ -343,7 +419,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
           {isProcessing ? (
             <div className="flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Creating Project...
+              Processing...
             </div>
           ) : (
             'Create Translation Project'
