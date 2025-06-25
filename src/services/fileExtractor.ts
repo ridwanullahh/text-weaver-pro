@@ -1,4 +1,3 @@
-
 import pdfParse from 'pdf-parse';
 
 interface ExtractedContent {
@@ -40,7 +39,9 @@ class FileExtractor {
   private async extractFromPDF(file: File): Promise<ExtractedContent> {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const data = await pdfParse(arrayBuffer);
+      // Convert ArrayBuffer to Buffer for pdf-parse
+      const buffer = Buffer.from(arrayBuffer);
+      const data = await pdfParse(buffer);
       
       return {
         text: data.text,
@@ -59,13 +60,7 @@ class FileExtractor {
 
   private async extractFromDocx(file: File): Promise<ExtractedContent> {
     try {
-      // Dynamic import to handle missing mammoth gracefully
-      const mammoth = await import('mammoth').catch(() => null);
-      
-      if (!mammoth) {
-        throw new Error('DOCX support not available. Please convert to PDF or TXT format.');
-      }
-
+      const mammoth = await import('mammoth');
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
       
