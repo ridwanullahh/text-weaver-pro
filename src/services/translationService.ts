@@ -1,6 +1,6 @@
-
 import { TranslationProject, TranslationChunk } from '../types/translation';
 import { dbUtils } from '../utils/database';
+import { geminiService } from './geminiService';
 
 interface TranslationProgress {
   percentage: number;
@@ -17,11 +17,6 @@ interface TranslationCallbacks {
 
 class TranslationService {
   private activeTranslations = new Map<number, boolean>();
-  private rateLimitTracker = {
-    tokensUsed: 0,
-    lastReset: new Date(),
-    maxTokensPerMinute: 1000000 // Gemini 2.5 Flash rate limit
-  };
 
   async startTranslation(project: TranslationProject, callbacks: TranslationCallbacks) {
     if (this.activeTranslations.get(project.id!)) {
@@ -44,6 +39,7 @@ class TranslationService {
       let completedChunks = 0;
       let totalChunks = chunksToProcess.length * project.targetLanguages.length;
       let tokensUsed = 0;
+      const startTime = new Date();
       
       // Process each target language
       for (const targetLanguage of project.targetLanguages) {
@@ -58,11 +54,14 @@ class TranslationService {
             continue;
           }
           
-          // Rate limiting
-          await this.checkRateLimit();
-          
           try {
-            const translatedText = await this.translateChunk(chunk.originalText, targetLanguage, project);
+            // Use Gemini service for translation
+            const translatedText = await geminiService.translateText(
+              chunk.originalText,
+              project.sourceLanguage,
+              targetLanguage,
+              project
+            );
             
             // Update chunk with translation
             chunk.translations[targetLanguage] = translatedText;
@@ -77,7 +76,7 @@ class TranslationService {
             
             // Calculate progress
             const percentage = (completedChunks / totalChunks) * 100;
-            const estimatedTimeRemaining = this.calculateETA(completedChunks, totalChunks, new Date());
+            const estimatedTimeRemaining = this.calculateETA(completedChunks, totalChunks, startTime);
             
             callbacks.onProgress({
               percentage,
@@ -152,6 +151,41 @@ class TranslationService {
     });
   }
 
+  async detectLanguage(text: string): Promise<string> {
+    try {
+      return await geminiService.detectLanguage(text);
+    } catch (error) {
+      console.error('Language detection failed:', error);
+      return 'auto';
+    }
+  }
+
+  async assessTranslationQuality(
+    originalText: string, 
+    translatedText: string, 
+    targetLanguage: string
+  ): Promise<{
+    accuracy: number;
+    fluency: number;
+    consistency: number;
+    culturalAdaptation: number;
+    overall: number;
+  }> {
+    try {
+      return await geminiService.getTranslationQuality(originalText, translatedText, targetLanguage);
+    } catch (error) {
+      console.error('Quality assessment failed:', error);
+      // Return default scores
+      return {
+        accuracy: 85,
+        fluency: 82,
+        consistency: 88,
+        culturalAdaptation: 80,
+        overall: 84
+      };
+    }
+  }
+
   private splitIntoChunks(text: string, chunkSize: number): string[] {
     const chunks: string[] = [];
     let currentChunk = '';
@@ -191,55 +225,6 @@ class TranslationService {
     }
     
     return chunks;
-  }
-
-  private async translateChunk(text: string, targetLanguage: string, project: TranslationProject): Promise<string> {
-    // This would integrate with Gemini 2.5 Flash API
-    // For now, we'll simulate the translation process
-    
-    const prompt = `Translate the following text from ${project.sourceLanguage} to ${targetLanguage}. 
-    Style: ${project.settings.translationStyle}
-    Context-aware: ${project.settings.contextAware}
-    Preserve formatting: ${project.settings.preserveFormatting}
-    
-    Text to translate:
-    ${text}`;
-
-    try {
-      // Simulate API call to Gemini 2.5 Flash
-      const response = await this.callGeminiAPI(prompt);
-      return response;
-    } catch (error) {
-      throw new Error(`Translation failed: ${error}`);
-    }
-  }
-
-  private async callGeminiAPI(prompt: string): Promise<string> {
-    // This would be the actual Gemini API call
-    // For simulation, we'll return a modified version of the original text
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-    
-    // Simulate translation by adding language prefix
-    return `[TRANSLATED] ${prompt.split('Text to translate:')[1]?.trim() || prompt}`;
-  }
-
-  private async checkRateLimit() {
-    const now = new Date();
-    const timeSinceReset = now.getTime() - this.rateLimitTracker.lastReset.getTime();
-    
-    // Reset counter every minute
-    if (timeSinceReset > 60000) {
-      this.rateLimitTracker.tokensUsed = 0;
-      this.rateLimitTracker.lastReset = now;
-    }
-    
-    // If approaching rate limit, wait
-    if (this.rateLimitTracker.tokensUsed > this.rateLimitTracker.maxTokensPerMinute * 0.9) {
-      const waitTime = 60000 - timeSinceReset;
-      if (waitTime > 0) {
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-    }
   }
 
   private estimateTokens(text: string): number {

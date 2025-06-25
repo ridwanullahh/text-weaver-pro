@@ -2,10 +2,11 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, BookOpen, FileImage, Settings } from 'lucide-react';
+import { Upload, FileText, BookOpen, Settings } from 'lucide-react';
 import { TranslationProject, TranslationSettings } from '../types/translation';
 import { dbUtils } from '../utils/database';
 import { toast } from '@/hooks/use-toast';
+import APIKeySetup from './APIKeySetup';
 
 interface UploadSectionProps {
   onProjectCreate: (project: TranslationProject) => void;
@@ -18,6 +19,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   const [textContent, setTextContent] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadMode, setUploadMode] = useState<'file' | 'text'>('file');
+  const [showApiSetup, setShowApiSetup] = useState(false);
   const [settings, setSettings] = useState<TranslationSettings>({
     preserveFormatting: true,
     chunkSize: 1000,
@@ -120,7 +122,31 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* API Key Setup */}
+      <div className="text-center mb-8">
+        <motion.button
+          onClick={() => setShowApiSetup(!showApiSetup)}
+          className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 text-white px-6 py-3 rounded-2xl font-medium hover:bg-purple-500/30 transition-all duration-300 flex items-center gap-2 mx-auto"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <Settings className="w-5 h-5" />
+          {showApiSetup ? 'Hide' : 'Setup'} Gemini API Key
+        </motion.button>
+      </div>
+
+      {showApiSetup && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="overflow-hidden"
+        >
+          <APIKeySetup />
+        </motion.div>
+      )}
+
       {/* Upload Mode Toggle */}
       <div className="flex justify-center">
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2 border border-white/20">
@@ -155,12 +181,12 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid lg:grid-cols-3 gap-8">
         {/* Content Input */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20"
+          className="lg:col-span-2 bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20"
         >
           <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
             <BookOpen className="w-6 h-6 text-purple-400" />
@@ -255,6 +281,19 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
               </select>
             </div>
 
+            <div>
+              <label className="block text-white/80 font-medium mb-2">Chunk Size</label>
+              <select
+                value={settings.chunkSize}
+                onChange={(e) => setSettings(prev => ({ ...prev, chunkSize: Number(e.target.value) }))}
+                className="w-full bg-white/5 border border-white/20 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value={500}>Small (500 chars)</option>
+                <option value={1000}>Medium (1000 chars)</option>
+                <option value={2000}>Large (2000 chars)</option>
+              </select>
+            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-white/80 font-medium">Preserve Formatting</span>
               <motion.button
@@ -267,6 +306,23 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                 <motion.div
                   className="w-5 h-5 bg-white rounded-full shadow-md"
                   animate={{ x: settings.preserveFormatting ? 24 : 2 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              </motion.button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 font-medium">Context Aware</span>
+              <motion.button
+                onClick={() => setSettings(prev => ({ ...prev, contextAware: !prev.contextAware }))}
+                className={`w-12 h-6 rounded-full transition-all duration-300 ${
+                  settings.contextAware ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-white/20'
+                }`}
+                whileTap={{ scale: 0.95 }}
+              >
+                <motion.div
+                  className="w-5 h-5 bg-white rounded-full shadow-md"
+                  animate={{ x: settings.contextAware ? 24 : 2 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
               </motion.button>
