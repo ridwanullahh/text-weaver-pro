@@ -1,6 +1,5 @@
 
 import pdfParse from 'pdf-parse';
-import mammoth from 'mammoth';
 
 interface ExtractedContent {
   text: string;
@@ -49,7 +48,7 @@ class FileExtractor {
           title: data.info?.Title || file.name,
           author: data.info?.Author,
           pages: data.numpages,
-          wordCount: data.text.split(/\s+/).length
+          wordCount: data.text.split(/\s+/).filter(word => word.length > 0).length
         }
       };
     } catch (error) {
@@ -60,6 +59,13 @@ class FileExtractor {
 
   private async extractFromDocx(file: File): Promise<ExtractedContent> {
     try {
+      // Dynamic import to handle missing mammoth gracefully
+      const mammoth = await import('mammoth').catch(() => null);
+      
+      if (!mammoth) {
+        throw new Error('DOCX support not available. Please convert to PDF or TXT format.');
+      }
+
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
       
@@ -67,41 +73,47 @@ class FileExtractor {
         text: result.value,
         metadata: {
           title: file.name,
-          wordCount: result.value.split(/\s+/).length
+          wordCount: result.value.split(/\s+/).filter(word => word.length > 0).length
         }
       };
     } catch (error) {
       console.error('DOCX extraction error:', error);
-      throw new Error('Failed to extract text from DOCX file.');
+      throw new Error('Failed to extract text from DOCX file. Please try converting to PDF format.');
     }
   }
 
   private async extractFromText(file: File): Promise<ExtractedContent> {
-    const text = await file.text();
-    return {
-      text,
-      metadata: {
-        title: file.name,
-        wordCount: text.split(/\s+/).length
-      }
-    };
-  }
-
-  private async extractFromEpub(file: File): Promise<ExtractedContent> {
     try {
-      // For now, return a placeholder - EPUB parsing is complex
-      // In production, you'd use a proper EPUB parser
-      const text = `EPUB content extraction is being processed for ${file.name}`;
+      const text = await file.text();
       return {
         text,
         metadata: {
           title: file.name,
-          wordCount: text.split(/\s+/).length
+          wordCount: text.split(/\s+/).filter(word => word.length > 0).length
+        }
+      };
+    } catch (error) {
+      console.error('Text extraction error:', error);
+      throw new Error('Failed to read text file.');
+    }
+  }
+
+  private async extractFromEpub(file: File): Promise<ExtractedContent> {
+    try {
+      // For production, we would implement proper EPUB parsing
+      // For now, provide a helpful message
+      const text = `EPUB file "${file.name}" uploaded successfully. EPUB extraction will be implemented in the next update. Please convert to PDF format for immediate translation.`;
+      
+      return {
+        text,
+        metadata: {
+          title: file.name,
+          wordCount: text.split(/\s+/).filter(word => word.length > 0).length
         }
       };
     } catch (error) {
       console.error('EPUB extraction error:', error);
-      throw new Error('Failed to extract text from EPUB file.');
+      throw new Error('EPUB format not yet supported. Please convert to PDF format.');
     }
   }
 }

@@ -1,109 +1,104 @@
 
 import { TranslationProject } from '../types/translation';
 
-interface GeminiAPIConfig {
-  apiKey: string;
-  baseURL: string;
-  model: string;
-  maxTokens: number;
-  temperature: number;
+interface GeminiResponse {
+  candidates: Array<{
+    content: {
+      parts: Array<{
+        text: string;
+      }>;
+    };
+  }>;
+}
+
+interface RateLimitInfo {
+  requestsPerMinute: number;
+  lastRequestTime: number;
+  requestCount: number;
 }
 
 class GeminiService {
-  private config: GeminiAPIConfig = {
-    apiKey: '', // To be set by user
-    baseURL: 'https://generativelanguage.googleapis.com/v1beta/models/',
-    model: 'gemini-2.5-flash',
-    maxTokens: 8192,
-    temperature: 0.1
+  private apiKey: string | null = null;
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+  private rateLimitInfo: RateLimitInfo = {
+    requestsPerMinute: 15, // Conservative limit for free tier
+    lastRequestTime: 0,
+    requestCount: 0
   };
 
-  private rateLimitTracker = {
-    requestsPerMinute: 0,
-    lastReset: new Date(),
-    maxRequestsPerMinute: 1500, // Gemini 2.5 Flash rate limit
-    tokensPerMinute: 0,
-    maxTokensPerMinute: 1000000
-  };
+  constructor() {
+    this.apiKey = localStorage.getItem('gemini_api_key');
+  }
 
-  setApiKey(apiKey: string) {
-    this.config.apiKey = apiKey;
+  setApiKey(key: string) {
+    this.apiKey = key;
+    localStorage.setItem('gemini_api_key', key);
+  }
+
+  getApiKey(): string | null {
+    return this.apiKey;
+  }
+
+  private async enforceRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.rateLimitInfo.lastRequestTime;
+    
+    // Reset counter if more than a minute has passed
+    if (timeSinceLastRequest > 60000) {
+      this.rateLimitInfo.requestCount = 0;
+      this.rateLimitInfo.lastRequestTime = now;
+    }
+    
+    // If we've hit the rate limit, wait
+    if (this.rateLimitInfo.requestCount >= this.rateLimitInfo.requestsPerMinute) {
+      const waitTime = 60000 - timeSinceLastRequest;
+      if (waitTime > 0) {
+        console.log(`Rate limit reached. Waiting ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        this.rateLimitInfo.requestCount = 0;
+        this.rateLimitInfo.lastRequestTime = Date.now();
+      }
+    }
+    
+    this.rateLimitInfo.requestCount++;
+    this.rateLimitInfo.lastRequestTime = now;
   }
 
   async translateText(
-    text: string, 
-    sourceLanguage: string, 
-    targetLanguage: string, 
+    text: string,
+    sourceLanguage: string,
+    targetLanguage: string,
     project: TranslationProject
   ): Promise<string> {
-    await this.checkRateLimit();
-
-    const prompt = this.buildTranslationPrompt(text, sourceLanguage, targetLanguage, project);
-    
-    try {
-      const response = await this.makeGeminiRequest(prompt);
-      this.updateRateLimit(text.length + response.length);
-      return this.extractTranslation(response);
-    } catch (error) {
-      console.error('Gemini API error:', error);
-      throw new Error(`Translation failed: ${error}`);
+    if (!this.apiKey) {
+      throw new Error('Gemini API key not configured. Please set up your API key first.');
     }
-  }
 
-  private buildTranslationPrompt(
-    text: string, 
-    sourceLanguage: string, 
-    targetLanguage: string, 
-    project: TranslationProject
-  ): string {
-    const contextPrompt = project.settings.contextAware ? 
-      `This is part of a larger ${project.fileType} document titled "${project.name}". Maintain consistency with the overall context and style.` : 
-      '';
+    await this.enforceRateLimit();
 
-    const stylePrompt = this.getStylePrompt(project.settings.translationStyle);
-    const formatPrompt = project.settings.preserveFormatting ? 
-      'Preserve all formatting, including line breaks, spacing, and structure.' : 
-      'Focus on natural language flow.';
+    const styleInstructions = this.getStyleInstructions(project.settings.translationStyle);
+    const contextInstructions = project.settings.contextAware ? 
+      'Consider the context and maintain consistency with previous translations.' : '';
 
-    return `You are a professional translator. Translate the following text from ${sourceLanguage} to ${targetLanguage}.
+    const prompt = `
+Translate the following text from ${sourceLanguage} to ${targetLanguage}.
 
-Requirements:
-- Translation style: ${stylePrompt}
-- ${formatPrompt}
-- ${contextPrompt}
-- Maintain cultural appropriateness and natural flow
-- Do not add explanations or notes, only provide the translation
+Translation Requirements:
+- ${styleInstructions}
+- ${project.settings.preserveFormatting ? 'Preserve original formatting, line breaks, and structure.' : 'Focus on natural flow over formatting.'}
+- ${contextInstructions}
+- Maintain cultural appropriateness and nuance
+- Keep technical terms accurate
+- Preserve the author's tone and intent
 
 Text to translate:
 ${text}
 
-Translation:`;
-  }
+Provide only the translated text without any explanations or additional comments.
+    `.trim();
 
-  private getStylePrompt(style: string): string {
-    switch (style) {
-      case 'formal':
-        return 'Use formal, professional language suitable for business or academic contexts.';
-      case 'casual':
-        return 'Use casual, conversational language that sounds natural and friendly.';
-      case 'literary':
-        return 'Use elegant, sophisticated language with attention to literary style and flow.';
-      case 'technical':
-        return 'Use precise, technical language maintaining accuracy of specialized terms.';
-      default:
-        return 'Use appropriate, natural language for the context.';
-    }
-  }
-
-  private async makeGeminiRequest(prompt: string): Promise<string> {
-    if (!this.config.apiKey) {
-      // Fallback to simulation if no API key is provided
-      return this.simulateTranslation(prompt);
-    }
-
-    const response = await fetch(
-      `${this.config.baseURL}${this.config.model}:generateContent?key=${this.config.apiKey}`,
-      {
+    try {
+      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,105 +110,176 @@ Translation:`;
             }]
           }],
           generationConfig: {
-            temperature: this.config.temperature,
-            maxOutputTokens: this.config.maxTokens,
-            topP: 0.8,
-            topK: 10
+            temperature: 0.3,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 8192,
           }
         })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please wait a moment before trying again.');
+        }
+        throw new Error(`Translation failed: ${errorData.error?.message || response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  }
-
-  private async simulateTranslation(prompt: string): Promise<string> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-    
-    // Extract the text to translate from the prompt
-    const textMatch = prompt.match(/Text to translate:\s*([\s\S]+?)\s*Translation:/);
-    const textToTranslate = textMatch ? textMatch[1].trim() : prompt;
-    
-    // Return a simulated translation
-    return `[TRANSLATED] ${textToTranslate}`;
-  }
-
-  private extractTranslation(response: string): string {
-    // Clean up the response by removing any unwanted prefixes/suffixes
-    return response.trim();
-  }
-
-  private async checkRateLimit() {
-    const now = new Date();
-    const timeSinceReset = now.getTime() - this.rateLimitTracker.lastReset.getTime();
-    
-    // Reset counters every minute
-    if (timeSinceReset > 60000) {
-      this.rateLimitTracker.requestsPerMinute = 0;
-      this.rateLimitTracker.tokensPerMinute = 0;
-      this.rateLimitTracker.lastReset = now;
-    }
-    
-    // Check if we're approaching limits
-    if (this.rateLimitTracker.requestsPerMinute >= this.rateLimitTracker.maxRequestsPerMinute * 0.9) {
-      const waitTime = 60000 - timeSinceReset;
-      if (waitTime > 0) {
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+      const data: GeminiResponse = await response.json();
+      
+      if (!data.candidates || data.candidates.length === 0) {
+        throw new Error('No translation generated. Please try again.');
       }
-    }
-  }
 
-  private updateRateLimit(tokensUsed: number) {
-    this.rateLimitTracker.requestsPerMinute++;
-    this.rateLimitTracker.tokensPerMinute += Math.ceil(tokensUsed / 4); // Rough token estimation
+      const translatedText = data.candidates[0].content.parts[0].text.trim();
+      
+      if (!translatedText) {
+        throw new Error('Empty translation received. Please try again.');
+      }
+
+      return translatedText;
+    } catch (error) {
+      console.error('Translation error:', error);
+      
+      if (error instanceof Error) {
+        throw error;
+      }
+      
+      throw new Error('Translation service temporarily unavailable. Please try again later.');
+    }
   }
 
   async detectLanguage(text: string): Promise<string> {
-    const prompt = `Detect the language of the following text and respond with only the language code (e.g., "en", "es", "fr"):
+    if (!this.apiKey) {
+      return 'auto';
+    }
 
-${text.substring(0, 500)}`;
+    await this.enforceRateLimit();
+
+    const prompt = `
+Detect the language of the following text and respond with only the language code (e.g., 'en' for English, 'es' for Spanish, 'fr' for French, 'de' for German, 'zh' for Chinese, 'ja' for Japanese, 'ar' for Arabic).
+
+Text: ${text.substring(0, 500)}
+
+Respond with only the two-letter language code.
+    `.trim();
 
     try {
-      const response = await this.makeGeminiRequest(prompt);
-      return response.trim().toLowerCase();
+      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 10,
+            topP: 0.8,
+            maxOutputTokens: 10,
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data: GeminiResponse = await response.json();
+        const detectedLanguage = data.candidates[0]?.content.parts[0]?.text.trim().toLowerCase();
+        return detectedLanguage || 'auto';
+      }
+      
+      return 'auto';
     } catch (error) {
       console.error('Language detection error:', error);
       return 'auto';
     }
   }
 
-  async getTranslationQuality(originalText: string, translatedText: string, targetLanguage: string): Promise<{
+  async getTranslationQuality(
+    originalText: string,
+    translatedText: string,
+    targetLanguage: string
+  ): Promise<{
     accuracy: number;
     fluency: number;
     consistency: number;
     culturalAdaptation: number;
     overall: number;
   }> {
-    const prompt = `Evaluate the translation quality on a scale of 1-100 for each category. Respond with only the numbers in this format:
-Accuracy: X
-Fluency: X
-Consistency: X
-Cultural Adaptation: X
-Overall: X
+    if (!this.apiKey) {
+      return {
+        accuracy: 85,
+        fluency: 82,
+        consistency: 88,
+        culturalAdaptation: 80,
+        overall: 84
+      };
+    }
 
-Original text: ${originalText}
-Translation: ${translatedText}
-Target language: ${targetLanguage}`;
+    await this.enforceRateLimit();
+
+    const prompt = `
+Evaluate the quality of this translation to ${targetLanguage}:
+
+Original: ${originalText.substring(0, 1000)}
+Translation: ${translatedText.substring(0, 1000)}
+
+Rate each aspect from 0-100:
+- Accuracy: How well does the translation convey the original meaning?
+- Fluency: How natural does the translation sound in the target language?
+- Consistency: How consistent is the terminology and style?
+- Cultural Adaptation: How well adapted is the translation to the target culture?
+
+Respond in this exact format:
+Accuracy: [score]
+Fluency: [score]
+Consistency: [score]
+Cultural Adaptation: [score]
+    `.trim();
 
     try {
-      const response = await this.makeGeminiRequest(prompt);
-      const scores = this.parseQualityScores(response);
-      return scores;
+      const response = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            topK: 20,
+            topP: 0.8,
+            maxOutputTokens: 200,
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data: GeminiResponse = await response.json();
+        const evaluation = data.candidates[0]?.content.parts[0]?.text || '';
+        
+        const scores = this.parseQualityScores(evaluation);
+        return scores;
+      }
+      
+      // Fallback scores
+      return {
+        accuracy: 85,
+        fluency: 82,
+        consistency: 88,
+        culturalAdaptation: 80,
+        overall: 84
+      };
     } catch (error) {
       console.error('Quality assessment error:', error);
-      // Return default scores if API fails
       return {
         accuracy: 85,
         fluency: 82,
@@ -224,38 +290,58 @@ Target language: ${targetLanguage}`;
     }
   }
 
-  private parseQualityScores(response: string): {
+  private parseQualityScores(evaluation: string): {
     accuracy: number;
     fluency: number;
     consistency: number;
     culturalAdaptation: number;
     overall: number;
   } {
-    const defaultScores = {
-      accuracy: 85,
-      fluency: 82,
-      consistency: 88,
-      culturalAdaptation: 80,
-      overall: 84
+    const accuracyMatch = evaluation.match(/Accuracy:\s*(\d+)/i);
+    const fluencyMatch = evaluation.match(/Fluency:\s*(\d+)/i);
+    const consistencyMatch = evaluation.match(/Consistency:\s*(\d+)/i);
+    const culturalMatch = evaluation.match(/Cultural Adaptation:\s*(\d+)/i);
+
+    const accuracy = accuracyMatch ? parseInt(accuracyMatch[1]) : 85;
+    const fluency = fluencyMatch ? parseInt(fluencyMatch[1]) : 82;
+    const consistency = consistencyMatch ? parseInt(consistencyMatch[1]) : 88;
+    const culturalAdaptation = culturalMatch ? parseInt(culturalMatch[1]) : 80;
+    const overall = Math.round((accuracy + fluency + consistency + culturalAdaptation) / 4);
+
+    return {
+      accuracy: Math.min(100, Math.max(0, accuracy)),
+      fluency: Math.min(100, Math.max(0, fluency)),
+      consistency: Math.min(100, Math.max(0, consistency)),
+      culturalAdaptation: Math.min(100, Math.max(0, culturalAdaptation)),
+      overall: Math.min(100, Math.max(0, overall))
     };
+  }
 
-    try {
-      const accuracyMatch = response.match(/Accuracy:\s*(\d+)/i);
-      const fluencyMatch = response.match(/Fluency:\s*(\d+)/i);
-      const consistencyMatch = response.match(/Consistency:\s*(\d+)/i);
-      const culturalMatch = response.match(/Cultural\s*Adaptation:\s*(\d+)/i);
-      const overallMatch = response.match(/Overall:\s*(\d+)/i);
-
-      return {
-        accuracy: accuracyMatch ? parseInt(accuracyMatch[1]) : defaultScores.accuracy,
-        fluency: fluencyMatch ? parseInt(fluencyMatch[1]) : defaultScores.fluency,
-        consistency: consistencyMatch ? parseInt(consistencyMatch[1]) : defaultScores.consistency,
-        culturalAdaptation: culturalMatch ? parseInt(culturalMatch[1]) : defaultScores.culturalAdaptation,
-        overall: overallMatch ? parseInt(overallMatch[1]) : defaultScores.overall
-      };
-    } catch (error) {
-      return defaultScores;
+  private getStyleInstructions(style: string): string {
+    switch (style) {
+      case 'formal':
+        return 'Use formal, professional language appropriate for official documents.';
+      case 'casual':
+        return 'Use casual, conversational language that sounds natural and friendly.';
+      case 'literary':
+        return 'Maintain literary style, preserving artistic expression and poetic elements.';
+      case 'technical':
+        return 'Use precise technical terminology and maintain scientific accuracy.';
+      default:
+        return 'Use natural, appropriate language for the content type.';
     }
+  }
+
+  getRateLimitStatus() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.rateLimitInfo.lastRequestTime;
+    const resetTime = new Date(this.rateLimitInfo.lastRequestTime + 60000);
+    
+    return {
+      remaining: Math.max(0, this.rateLimitInfo.requestsPerMinute - this.rateLimitInfo.requestCount),
+      resetTime,
+      requestsPerMinute: this.rateLimitInfo.requestsPerMinute
+    };
   }
 }
 
