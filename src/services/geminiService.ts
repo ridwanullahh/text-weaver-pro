@@ -1,4 +1,3 @@
-
 import { TranslationProject } from '../types/translation';
 
 interface GeminiResponse {
@@ -76,25 +75,53 @@ class GeminiService {
 
     await this.enforceRateLimit();
 
-    const styleInstructions = this.getStyleInstructions(project.settings.translationStyle);
+    const styleInstructions = this.getAdvancedStyleInstructions(project.settings.translationStyle);
     const contextInstructions = project.settings.contextAware ? 
-      'Consider the context and maintain consistency with previous translations.' : '';
+      'Consider the context and maintain consistency with previous translations. Preserve the logical flow and coherence of the document.' : '';
+    
+    const formattingInstructions = project.settings.preserveFormatting ? 
+      'CRITICAL: Preserve ALL original formatting including line breaks, paragraph structure, bullet points, numbering, and spacing. Maintain the exact document structure.' : 
+      'Focus on natural language flow while maintaining readability.';
+    
+    const qualityInstructions = `
+TRANSLATION QUALITY REQUIREMENTS:
+- Accuracy: Translate the exact meaning without adding or omitting information
+- Fluency: Ensure the translation reads naturally in ${targetLanguage}
+- Consistency: Use consistent terminology throughout
+- Cultural Adaptation: Adapt idioms and cultural references appropriately
+- Tone Preservation: Maintain the original author's tone and style
+`;
 
     const prompt = `
-Translate the following text from ${sourceLanguage} to ${targetLanguage}.
+You are a professional translator with expertise in ${sourceLanguage} to ${targetLanguage} translation.
 
-Translation Requirements:
-- ${styleInstructions}
-- ${project.settings.preserveFormatting ? 'Preserve original formatting, line breaks, and structure.' : 'Focus on natural flow over formatting.'}
-- ${contextInstructions}
-- Maintain cultural appropriateness and nuance
-- Keep technical terms accurate
-- Preserve the author's tone and intent
+${qualityInstructions}
 
-Text to translate:
+STYLE REQUIREMENTS:
+${styleInstructions}
+
+FORMATTING REQUIREMENTS:
+${formattingInstructions}
+
+CONTEXT REQUIREMENTS:
+${contextInstructions}
+
+ADDITIONAL GUIDELINES:
+- For technical terms, prioritize accuracy over literal translation
+- For proper nouns, research appropriate translations or transliterations
+- For ambiguous terms, choose the meaning that best fits the context
+- Maintain any special formatting markers (**, __, etc.)
+- Preserve any code snippets, URLs, or email addresses unchanged
+
+SOURCE LANGUAGE: ${sourceLanguage}
+TARGET LANGUAGE: ${targetLanguage}
+
+TEXT TO TRANSLATE:
+"""
 ${text}
+"""
 
-Provide only the translated text without any explanations or additional comments.
+IMPORTANT: Provide ONLY the translated text. Do not include explanations, notes, or commentary.
     `.trim();
 
     try {
@@ -110,11 +137,30 @@ Provide only the translated text without any explanations or additional comments
             }]
           }],
           generationConfig: {
-            temperature: 0.3,
+            temperature: 0.2, // Lower temperature for more consistent translations
             topK: 40,
-            topP: 0.95,
+            topP: 0.9,
             maxOutputTokens: 8192,
-          }
+            candidateCount: 1
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
         })
       });
 
@@ -123,22 +169,29 @@ Provide only the translated text without any explanations or additional comments
         if (response.status === 429) {
           throw new Error('Rate limit exceeded. Please wait a moment before trying again.');
         }
+        if (response.status === 400) {
+          throw new Error('Invalid request. Please check your content and try again.');
+        }
+        if (response.status === 403) {
+          throw new Error('API key invalid or quota exceeded. Please check your Gemini API configuration.');
+        }
         throw new Error(`Translation failed: ${errorData.error?.message || response.statusText}`);
       }
 
       const data: GeminiResponse = await response.json();
       
       if (!data.candidates || data.candidates.length === 0) {
-        throw new Error('No translation generated. Please try again.');
+        throw new Error('No translation generated. The content may have triggered safety filters.');
       }
 
       const translatedText = data.candidates[0].content.parts[0].text.trim();
       
       if (!translatedText) {
-        throw new Error('Empty translation received. Please try again.');
+        throw new Error('Empty translation received. Please try again with different content.');
       }
 
-      return translatedText;
+      // Post-process the translation to ensure quality
+      return this.postProcessTranslation(translatedText, project.settings.preserveFormatting);
     } catch (error) {
       console.error('Translation error:', error);
       
@@ -148,6 +201,36 @@ Provide only the translated text without any explanations or additional comments
       
       throw new Error('Translation service temporarily unavailable. Please try again later.');
     }
+  }
+
+  private postProcessTranslation(text: string, preserveFormatting: boolean): string {
+    let processed = text;
+    
+    // Clean up common AI translation artifacts
+    processed = processed.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+    processed = processed.replace(/^\s*Translation:\s*/i, ''); // Remove "Translation:" prefix
+    processed = processed.replace(/^\s*Result:\s*/i, ''); // Remove "Result:" prefix
+    
+    if (preserveFormatting) {
+      // Ensure proper line breaks are maintained
+      processed = processed.replace(/\n\s*\n/g, '\n\n'); // Normalize paragraph breaks
+    } else {
+      // Clean up excessive whitespace
+      processed = processed.replace(/\s+/g, ' ').trim();
+    }
+    
+    return processed;
+  }
+
+  private getAdvancedStyleInstructions(style: string): string {
+    const baseInstructions = {
+      formal: 'Use formal, professional language with proper grammar and sophisticated vocabulary. Maintain a respectful and authoritative tone suitable for official documents, academic papers, or business communications.',
+      casual: 'Use casual, conversational language that sounds natural and approachable. Include colloquialisms and informal expressions where appropriate, but maintain clarity and readability.',
+      literary: 'Preserve the artistic and literary qualities of the text. Maintain poetic elements, metaphors, literary devices, and the author\'s unique voice. Pay special attention to rhythm, style, and aesthetic appeal.',
+      technical: 'Use precise technical terminology and maintain scientific accuracy. Prioritize clarity and precision over stylistic flourishes. Ensure all technical terms are correctly translated and contextually appropriate.'
+    };
+
+    return baseInstructions[style as keyof typeof baseInstructions] || baseInstructions.formal;
   }
 
   async detectLanguage(text: string): Promise<string> {
@@ -315,21 +398,6 @@ Cultural Adaptation: [score]
       culturalAdaptation: Math.min(100, Math.max(0, culturalAdaptation)),
       overall: Math.min(100, Math.max(0, overall))
     };
-  }
-
-  private getStyleInstructions(style: string): string {
-    switch (style) {
-      case 'formal':
-        return 'Use formal, professional language appropriate for official documents.';
-      case 'casual':
-        return 'Use casual, conversational language that sounds natural and friendly.';
-      case 'literary':
-        return 'Maintain literary style, preserving artistic expression and poetic elements.';
-      case 'technical':
-        return 'Use precise technical terminology and maintain scientific accuracy.';
-      default:
-        return 'Use natural, appropriate language for the content type.';
-    }
   }
 
   getRateLimitStatus() {

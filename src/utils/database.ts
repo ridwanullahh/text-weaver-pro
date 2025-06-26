@@ -14,7 +14,7 @@ class TranslationDatabase extends Dexie {
       chunks: '++id, projectId, chunkIndex, originalText, translations, status, createdAt'
     });
 
-    // Handle database initialization errors
+    // Handle database initialization errors with proper event handler
     this.on('error', (error) => {
       console.error('Database error:', error);
     });
@@ -23,9 +23,16 @@ class TranslationDatabase extends Dexie {
 
 export const translationDB = new TranslationDatabase();
 
-// Initialize database connection
+// Initialize database connection with better error handling
 translationDB.open().catch(error => {
   console.error('Failed to open database:', error);
+  // Fallback: try to delete and recreate database
+  translationDB.delete().then(() => {
+    console.log('Database deleted, attempting to recreate...');
+    return translationDB.open();
+  }).catch(recreateError => {
+    console.error('Failed to recreate database:', recreateError);
+  });
 });
 
 // Database utilities

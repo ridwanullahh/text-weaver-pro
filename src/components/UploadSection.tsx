@@ -81,7 +81,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         setExtractionSuccess(false);
         toast({
           title: "File Processing Warning",
-          description: `File uploaded but content extraction had issues. You can still create a project.`,
+          description: error instanceof Error ? error.message : "File uploaded but content extraction had issues.",
           variant: "destructive"
         });
       } finally {
@@ -96,10 +96,17 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       'text/plain': ['.txt'],
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/rtf': ['.rtf'],
+      'text/csv': ['.csv'],
+      'text/html': ['.html', '.htm'],
+      'application/xml': ['.xml'],
+      'text/xml': ['.xml'],
+      'application/json': ['.json'],
       'application/epub+zip': ['.epub']
     },
     multiple: false,
-    maxSize: 50 * 1024 * 1024 // 50MB limit
+    maxSize: 100 * 1024 * 1024 // 100MB limit
   });
 
   const getFileType = (file: File): 'text' | 'pdf' | 'docx' | 'epub' => {
@@ -327,8 +334,11 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
               ) : (
                 <div className="text-white/80">
                   <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
-                  <p className="text-lg font-medium">Drop your file here</p>
-                  <p className="text-sm text-white/60">Supports TXT, PDF, DOCX, EPUB (Max 50MB)</p>
+                  <p className="text-lg font-medium">Drop your document here</p>
+                  <p className="text-sm text-white/60 mt-2">
+                    Supports: PDF, DOCX, TXT, RTF, CSV, XLSX, HTML, XML, JSON, EPUB
+                  </p>
+                  <p className="text-xs text-white/40 mt-1">Max file size: 100MB</p>
                 </div>
               )}
             </div>
@@ -393,6 +403,11 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                 <option value="zh">Chinese</option>
                 <option value="ja">Japanese</option>
                 <option value="ar">Arabic</option>
+                <option value="pt">Portuguese</option>
+                <option value="ru">Russian</option>
+                <option value="it">Italian</option>
+                <option value="ko">Korean</option>
+                <option value="hi">Hindi</option>
               </select>
             </div>
 
@@ -403,10 +418,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                 onChange={(e) => setSettings(prev => ({ ...prev, translationStyle: e.target.value as any }))}
                 className="w-full bg-white/5 border border-white/20 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value="formal">Formal</option>
-                <option value="casual">Casual</option>
-                <option value="literary">Literary</option>
-                <option value="technical">Technical</option>
+                <option value="formal">Formal & Professional</option>
+                <option value="casual">Casual & Conversational</option>
+                <option value="literary">Literary & Artistic</option>
+                <option value="technical">Technical & Precise</option>
               </select>
             </div>
 
@@ -417,9 +432,9 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                 onChange={(e) => setSettings(prev => ({ ...prev, chunkSize: Number(e.target.value) }))}
                 className="w-full bg-white/5 border border-white/20 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
-                <option value={500}>Small (500 chars)</option>
-                <option value={1000}>Medium (1000 chars)</option>
-                <option value={2000}>Large (2000 chars)</option>
+                <option value={500}>Small (500 chars) - More accurate</option>
+                <option value={1000}>Medium (1000 chars) - Balanced</option>
+                <option value={2000}>Large (2000 chars) - Faster</option>
               </select>
             </div>
 
