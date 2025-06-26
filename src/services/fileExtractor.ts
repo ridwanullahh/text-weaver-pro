@@ -1,4 +1,3 @@
-import pdfParse from 'pdf-parse';
 
 interface ExtractedContent {
   text: string;
@@ -38,10 +37,11 @@ class FileExtractor {
 
   private async extractFromPDF(file: File): Promise<ExtractedContent> {
     try {
+      const pdfParse = await import('pdf-parse');
       const arrayBuffer = await file.arrayBuffer();
       // Convert ArrayBuffer to Buffer for pdf-parse
       const buffer = Buffer.from(arrayBuffer);
-      const data = await pdfParse(buffer);
+      const data = await pdfParse.default(buffer);
       
       return {
         text: data.text,
