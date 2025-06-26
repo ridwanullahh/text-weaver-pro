@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import TranslationHeader from '../components/TranslationHeader';
@@ -13,27 +14,43 @@ import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
 
 const Index = () => {
+  console.log('Index component rendering...');
+  
   const [currentProject, setCurrentProject] = useState<TranslationProject | null>(null);
   const [projects, setProjects] = useState<TranslationProject[]>([]);
   const [activeTab, setActiveTab] = useState('upload');
-  const [showLiveView, setShowLiveView] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('Loading projects...');
     loadProjects();
   }, []);
 
   const loadProjects = async () => {
-    const allProjects = await translationDB.projects.toArray();
-    setProjects(allProjects);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const allProjects = await translationDB.projects.toArray();
+      console.log('Projects loaded:', allProjects.length);
+      setProjects(allProjects);
+    } catch (err) {
+      console.error('Error loading projects:', err);
+      setError('Failed to load projects');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleProjectCreate = (project: TranslationProject) => {
+    console.log('Creating project:', project.name);
     setCurrentProject(project);
     setProjects(prev => [...prev, project]);
     setActiveTab('translate');
   };
 
   const handleProjectSelect = (project: TranslationProject) => {
+    console.log('Selecting project:', project.name);
     setCurrentProject(project);
     setActiveTab('translate');
   };
@@ -46,6 +63,24 @@ const Index = () => {
     { id: 'analytics', label: 'Analytics', icon: '📊' },
     { id: 'quality', label: 'Quality', icon: '⭐' }
   ];
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-white mb-4">Something went wrong</h2>
+          <p className="text-white/60 mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-2xl font-medium"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900">
