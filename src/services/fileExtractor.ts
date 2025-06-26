@@ -10,6 +10,16 @@ interface ExtractedContent {
   };
 }
 
+interface PDFMetadata {
+  Title?: string;
+  Author?: string;
+  Subject?: string;
+  Creator?: string;
+  Producer?: string;
+  CreationDate?: Date;
+  ModDate?: Date;
+}
+
 class FileExtractor {
   async extractFromFile(file: File): Promise<ExtractedContent> {
     const fileType = this.getFileType(file);
@@ -98,14 +108,15 @@ class FileExtractor {
         }
       }
       
-      // Get metadata
+      // Get metadata with proper typing
       const metadata = await pdf.getMetadata();
+      const info = metadata.info as PDFMetadata;
       
       return {
         text: fullText.trim(),
         metadata: {
-          title: metadata.info?.Title || file.name,
-          author: metadata.info?.Author,
+          title: info?.Title || file.name,
+          author: info?.Author,
           pages: numPages,
           wordCount: this.countWords(fullText),
           fileSize: this.formatFileSize(file.size),

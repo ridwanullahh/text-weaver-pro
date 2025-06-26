@@ -15,8 +15,8 @@ class TranslationDatabase extends Dexie {
     });
 
     // Handle database initialization errors with proper event handler
-    this.on('error', (error) => {
-      console.error('Database error:', error);
+    this.on('ready', () => {
+      console.log('Database initialized successfully');
     });
   }
 }
