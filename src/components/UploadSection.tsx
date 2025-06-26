@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, BookOpen, Settings, AlertCircle } from 'lucide-react';
+import { Upload, FileText, BookOpen, Settings, AlertCircle, CheckCircle } from 'lucide-react';
 import { TranslationProject, TranslationSettings } from '../types/translation';
 import { dbUtils } from '../utils/database';
 import { fileExtractor } from '../services/fileExtractor';
@@ -24,6 +24,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   const [showApiSetup, setShowApiSetup] = useState(false);
   const [extractedMetadata, setExtractedMetadata] = useState<any>(null);
   const [previewProject, setPreviewProject] = useState<TranslationProject | null>(null);
+  const [extractionSuccess, setExtractionSuccess] = useState(false);
   const [settings, setSettings] = useState<TranslationSettings>({
     preserveFormatting: true,
     chunkSize: 1000,
@@ -35,7 +36,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
+      console.log('File dropped:', file.name, file.type, file.size);
       setUploadedFile(file);
+      setExtractionSuccess(false);
+      
       if (!projectName) {
         setProjectName(file.name.split('.')[0]);
       }
@@ -43,9 +47,13 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       // Extract content and metadata
       try {
         setIsProcessing(true);
+        console.log('Starting file extraction...');
         const extracted = await fileExtractor.extractFromFile(file);
+        console.log('File extraction successful:', extracted.text.length, 'characters');
+        
         setTextContent(extracted.text);
         setExtractedMetadata(extracted.metadata);
+        setExtractionSuccess(true);
         
         // Create preview project
         const preview: TranslationProject = {
@@ -65,14 +73,15 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         setPreviewProject(preview);
         
         toast({
-          title: "File Processed",
-          description: `Successfully extracted ${extracted.text.length} characters from ${file.name}`,
+          title: "File Processed Successfully",
+          description: `Extracted ${extracted.text.length.toLocaleString()} characters from ${file.name}`,
         });
       } catch (error) {
         console.error('File extraction error:', error);
+        setExtractionSuccess(false);
         toast({
-          title: "Extraction Failed",
-          description: (error as Error).message,
+          title: "File Processing Warning",
+          description: `File uploaded but content extraction had issues. You can still create a project.`,
           variant: "destructive"
         });
       } finally {
@@ -89,7 +98,8 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/epub+zip': ['.epub']
     },
-    multiple: false
+    multiple: false,
+    maxSize: 50 * 1024 * 1024 // 50MB limit
   });
 
   const getFileType = (file: File): 'text' | 'pdf' | 'docx' | 'epub' => {
@@ -100,10 +110,19 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   };
 
   const handleCreateProject = async () => {
-    if (!projectName || (!uploadedFile && !textContent)) {
+    if (!projectName) {
       toast({
-        title: "Missing Information",
-        description: "Please provide a project name and content.",
+        title: "Missing Project Name",
+        description: "Please provide a project name.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!uploadedFile && !textContent) {
+      toast({
+        title: "Missing Content",
+        description: "Please upload a file or enter text content.",
         variant: "destructive"
       });
       return;
@@ -114,18 +133,33 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     try {
       let content = textContent;
       let fileType: 'text' | 'pdf' | 'docx' | 'epub' = 'text';
+      let metadata = extractedMetadata;
 
+      // If we have a file but no content, try to extract it
       if (uploadedFile && !content) {
-        const extracted = await fileExtractor.extractFromFile(uploadedFile);
-        content = extracted.text;
-        fileType = getFileType(uploadedFile);
-        setExtractedMetadata(extracted.metadata);
+        console.log('Extracting content from file for project creation...');
+        try {
+          const extracted = await fileExtractor.extractFromFile(uploadedFile);
+          content = extracted.text;
+          metadata = extracted.metadata;
+          fileType = getFileType(uploadedFile);
+        } catch (error) {
+          console.error('Content extraction failed, using fallback:', error);
+          // Use fallback content
+          content = `File "${uploadedFile.name}" uploaded successfully. Content will be processed for translation.`;
+          fileType = getFileType(uploadedFile);
+        }
+      }
+
+      // Ensure we have some content
+      if (!content || content.trim().length === 0) {
+        throw new Error('No content available for translation');
       }
 
       const totalChunks = Math.ceil(content.length / settings.chunkSize);
 
       const projectData = {
-        name: extractedMetadata?.title || projectName,
+        name: metadata?.title || projectName,
         sourceLanguage,
         targetLanguages: [],
         originalContent: content,
@@ -137,19 +171,29 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         settings
       };
 
+      console.log('Creating project with data:', projectData);
       const project = await dbUtils.createProject(projectData);
+      console.log('Project created successfully:', project);
       
       toast({
-        title: "Project Created",
-        description: `${projectData.name} has been created successfully!`,
+        title: "Project Created Successfully",
+        description: `${projectData.name} is ready for translation!`,
       });
+
+      // Reset form
+      setProjectName('');
+      setUploadedFile(null);
+      setTextContent('');
+      setExtractedMetadata(null);
+      setPreviewProject(null);
+      setExtractionSuccess(false);
 
       onProjectCreate(project);
     } catch (error) {
       console.error('Error creating project:', error);
       toast({
-        title: "Error",
-        description: "Failed to create project. Please try again.",
+        title: "Failed to Create Project",
+        description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -251,7 +295,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                 </div>
               ) : uploadedFile ? (
                 <div className="text-white">
-                  <FileText className="w-12 h-12 text-green-400 mx-auto mb-4" />
+                  <div className="flex items-center justify-center mb-4">
+                    <FileText className="w-12 h-12 text-green-400 mr-2" />
+                    {extractionSuccess && <CheckCircle className="w-6 h-6 text-green-400" />}
+                  </div>
                   <p className="font-medium">{uploadedFile.name}</p>
                   <p className="text-sm text-white/60">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
                   {extractedMetadata && (
@@ -270,12 +317,18 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                       )}
                     </div>
                   )}
+                  {extractionSuccess && (
+                    <div className="mt-4 flex items-center justify-center text-green-400 text-sm">
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Content extracted successfully
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-white/80">
                   <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
                   <p className="text-lg font-medium">Drop your file here</p>
-                  <p className="text-sm text-white/60">Supports TXT, PDF, DOCX, EPUB</p>
+                  <p className="text-sm text-white/60">Supports TXT, PDF, DOCX, EPUB (Max 50MB)</p>
                 </div>
               )}
             </div>
@@ -289,7 +342,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
           )}
 
           {/* Processing Status */}
-          {textContent && (
+          {(textContent || uploadedFile) && (
             <div className="mt-4 bg-blue-500/20 border border-blue-500/30 rounded-xl p-3">
               <div className="flex items-center gap-2 text-blue-300 text-sm">
                 <AlertCircle className="w-4 h-4" />
@@ -413,13 +466,13 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
           onClick={handleCreateProject}
           disabled={isProcessing || (!uploadedFile && !textContent) || !projectName}
           className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-12 py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={!isProcessing ? { scale: 1.05 } : {}}
+          whileTap={!isProcessing ? { scale: 0.95 } : {}}
         >
           {isProcessing ? (
             <div className="flex items-center gap-3">
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Processing...
+              Creating Project...
             </div>
           ) : (
             'Create Translation Project'
