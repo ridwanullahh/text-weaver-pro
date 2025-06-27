@@ -18,6 +18,16 @@ interface GeminiPdfExtractionResult {
 }
 
 class GeminiPdfExtractor {
+  private getGeminiModel(): string {
+    // Check if user has configured a specific Gemini model
+    const provider = aiProviderService.getProvider();
+    if (provider && provider.provider === 'gemini' && provider.model) {
+      return provider.model;
+    }
+    // Default to Gemini 2.5 Flash for extraction
+    return 'gemini-2.0-flash-exp'; // Updated to use 2.5 Flash when available
+  }
+
   private async convertPdfPageToBase64(file: File, pageNumber: number): Promise<string> {
     try {
       const pdfjsLib = await import('pdfjs-dist');
@@ -31,7 +41,7 @@ class GeminiPdfExtractor {
       const page = await pdf.getPage(pageNumber);
       
       // Create canvas to render the page
-      const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better quality
+      const viewport = page.getViewport({ scale: 2.5 }); // Higher scale for better OCR accuracy
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d')!;
       canvas.height = viewport.height;
@@ -66,48 +76,48 @@ class GeminiPdfExtractor {
       
       console.log(`Processing ${totalPages} pages with Gemini AI...`);
       
-      // Process pages in batches to respect rate limits
-      const batchSize = 3; // Process 3 pages at a time
-      const batches = Math.ceil(totalPages / batchSize);
-      
-      for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
-        const startPage = batchIndex * batchSize + 1;
-        const endPage = Math.min((batchIndex + 1) * batchSize, totalPages);
+      // Process pages sequentially to respect rate limits and avoid skipping
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        console.log(`Processing page ${pageNum}/${totalPages}...`);
         
-        console.log(`Processing batch ${batchIndex + 1}/${batches}: pages ${startPage}-${endPage}`);
+        let attempts = 0;
+        const maxAttempts = 3;
+        let success = false;
         
-        // Process pages in current batch
-        const batchPromises = [];
-        for (let pageNum = startPage; pageNum <= endPage; pageNum++) {
-          batchPromises.push(this.extractPageWithGemini(file, pageNum));
-        }
-        
-        // Wait for batch completion
-        const batchResults = await Promise.allSettled(batchPromises);
-        
-        // Collect successful extractions
-        batchResults.forEach((result, index) => {
-          const pageNum = startPage + index;
-          if (result.status === 'fulfilled') {
+        while (attempts < maxAttempts && !success) {
+          try {
+            const extractedText = await this.extractPageWithGemini(file, pageNum);
             extractedPages.push({
               pageNumber: pageNum,
-              text: result.value,
+              text: extractedText,
               confidence: 0.95 // Gemini typically has high confidence
             });
-          } else {
-            console.error(`Failed to extract page ${pageNum}:`, result.reason);
-            extractedPages.push({
-              pageNumber: pageNum,
-              text: `[Page ${pageNum} extraction failed]`,
-              confidence: 0.0
-            });
+            success = true;
+            console.log(`Successfully extracted page ${pageNum}`);
+          } catch (error) {
+            attempts++;
+            console.error(`Attempt ${attempts} failed for page ${pageNum}:`, error);
+            
+            if (attempts < maxAttempts) {
+              // Wait before retry (exponential backoff)
+              const waitTime = Math.pow(2, attempts) * 1000;
+              console.log(`Waiting ${waitTime}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            } else {
+              console.error(`Failed to extract page ${pageNum} after ${maxAttempts} attempts`);
+              extractedPages.push({
+                pageNumber: pageNum,
+                text: `[Page ${pageNum} extraction failed]`,
+                confidence: 0.0
+              });
+            }
           }
-        });
+        }
         
-        // Rate limiting: wait between batches
-        if (batchIndex < batches - 1) {
-          console.log('Waiting between batches to respect rate limits...');
-          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+        // Rate limiting: wait between pages to avoid hitting limits
+        if (pageNum < totalPages) {
+          console.log('Waiting between pages to respect rate limits...');
+          await new Promise(resolve => setTimeout(resolve, 6000)); // 6 seconds for 10 requests/minute limit
         }
       }
       
@@ -142,52 +152,34 @@ class GeminiPdfExtractor {
       // Convert PDF page to base64 image
       const base64Image = await this.convertPdfPageToBase64(file, pageNumber);
       
-      // Create prompt for Gemini
+      // Create specialized prompt for accurate text extraction
       const prompt = `
-Please extract all text content from this PDF page image. Follow these guidelines:
+Extract ALL text content from this PDF page image with maximum accuracy. This is CRITICAL for translation purposes.
 
-1. ACCURACY: Extract text exactly as it appears, preserving:
-   - Original spelling and capitalization
-   - Numbers, dates, and special characters
-   - Mathematical formulas and symbols
-   - Arabic text, diacritics, and RTL formatting
+EXTRACTION REQUIREMENTS:
+1. **COMPLETENESS**: Extract every single word, number, symbol, and character visible
+2. **ACCURACY**: Preserve exact spelling, capitalization, and punctuation
+3. **LANGUAGE SUPPORT**: Handle Arabic, English, and mixed-language content perfectly
+4. **STRUCTURE**: Maintain original layout, paragraph breaks, and formatting
+5. **SPECIAL CHARACTERS**: Include all diacritics, mathematical symbols, and special marks
+6. **RTL TEXT**: Properly handle right-to-left Arabic text direction
 
-2. STRUCTURE: Maintain document structure:
-   - Preserve paragraph breaks and line spacing
-   - Keep bullet points and numbering
-   - Maintain table layouts where possible
-   - Preserve headings and subheadings hierarchy
+FORMATTING PRESERVATION:
+- Keep original line breaks and paragraph structure
+- Preserve bullet points, numbering, and indentation
+- Maintain spacing between sections
+- Keep headers and subheadings distinct
 
-3. FORMATTING: Include formatting markers:
-   - **bold text**
-   - *italic text*
-   - Preserve indentation with spaces
-   - Keep footnotes and references
+OUTPUT INSTRUCTIONS:
+- Provide ONLY the extracted text content
+- NO explanations, comments, or metadata
+- If page appears blank, respond with "[BLANK PAGE]"
+- If text is unclear, use [UNCLEAR: best_guess] notation
 
-4. LANGUAGE: Handle multiple languages:
-   - Preserve Arabic, Hebrew, and other RTL scripts
-   - Maintain mixed language documents
-   - Keep transliterations accurate
-
-5. OUTPUT: Provide ONLY the extracted text content, no explanations or commentary.
-
-If the page appears to be blank or unreadable, respond with "[BLANK PAGE]".
-If text is partially obscured or unclear, use [UNCLEAR: approximate_text] notation.
+This text will be used for professional translation - accuracy is paramount.
       `.trim();
 
-      // Check if provider is configured
-      const provider = aiProviderService.getProvider();
-      if (!provider) {
-        throw new Error('AI provider not configured');
-      }
-
-      // For Gemini, we need to use the vision model
-      if (provider.provider === 'gemini') {
-        return await this.extractWithGeminiVision(prompt, base64Image);
-      } else {
-        // For other providers, fall back to regular extraction
-        throw new Error('Gemini-based PDF extraction requires Gemini AI provider');
-      }
+      return await this.extractWithGeminiVision(prompt, base64Image);
       
     } catch (error) {
       console.error(`Error extracting page ${pageNumber} with Gemini:`, error);
@@ -196,11 +188,27 @@ If text is partially obscured or unclear, use [UNCLEAR: approximate_text] notati
   }
 
   private async extractWithGeminiVision(prompt: string, base64Image: string): Promise<string> {
-    const provider = aiProviderService.getProvider()!;
     const baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
-    const model = 'gemini-2.0-flash-exp';
+    const model = this.getGeminiModel();
     
-    const response = await fetch(`${baseUrl}/${model}:generateContent?key=${provider.apiKey}`, {
+    // Try to get API key from aiProviderService first, fallback to localStorage
+    let apiKey = '';
+    const provider = aiProviderService.getProvider();
+    if (provider && provider.provider === 'gemini') {
+      apiKey = provider.apiKey;
+    } else {
+      // Fallback to check localStorage for Gemini key
+      const geminiConfig = localStorage.getItem('gemini_api_key');
+      if (geminiConfig) {
+        apiKey = geminiConfig;
+      }
+    }
+    
+    if (!apiKey) {
+      throw new Error('Gemini API key not configured. Please set up your API key in the settings.');
+    }
+    
+    const response = await fetch(`${baseUrl}/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -216,7 +224,7 @@ If text is partially obscured or unclear, use [UNCLEAR: approximate_text] notati
           ]
         }],
         generationConfig: {
-          temperature: 0.1, // Low temperature for accurate text extraction
+          temperature: 0.1, // Very low temperature for accurate extraction
           topK: 10,
           topP: 0.8,
           maxOutputTokens: 8192

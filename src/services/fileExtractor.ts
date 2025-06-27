@@ -1,3 +1,5 @@
+import { geminiPdfExtractor } from './geminiPdfExtractor';
+
 interface ExtractedContent {
   text: string;
   metadata?: {
@@ -78,7 +80,34 @@ class FileExtractor {
   }
 
   private async extractFromPDF(file: File): Promise<ExtractedContent> {
+    console.log('Starting PDF extraction with Gemini AI...');
+    
     try {
+      // First try Gemini-powered extraction for better accuracy
+      const geminiResult = await geminiPdfExtractor.extractWithGemini(file);
+      
+      if (geminiResult.text && geminiResult.text.trim().length > 0) {
+        console.log('Gemini PDF extraction successful:', geminiResult.text.length, 'characters');
+        
+        return {
+          text: geminiResult.text,
+          metadata: {
+            title: file.name.split('.')[0],
+            pages: geminiResult.metadata.totalPages,
+            wordCount: this.countWords(geminiResult.text),
+            fileSize: this.formatFileSize(file.size),
+            lastModified: new Date(file.lastModified)
+          }
+        };
+      }
+    } catch (error) {
+      console.warn('Gemini PDF extraction failed, falling back to traditional method:', error);
+    }
+
+    // Fallback to traditional PDF.js extraction
+    try {
+      console.log('Using traditional PDF.js extraction as fallback...');
+      
       const pdfjsLib = await import('pdfjs-dist');
       
       // Set worker source with fallback
@@ -115,7 +144,7 @@ class FileExtractor {
       return {
         text: fullText.trim(),
         metadata: {
-          title: info?.Title || file.name,
+          title: info?.Title || file.name.split('.')[0],
           author: info?.Author,
           pages: numPages,
           wordCount: this.countWords(fullText),
@@ -124,7 +153,7 @@ class FileExtractor {
         }
       };
     } catch (error) {
-      console.error('PDF extraction error:', error);
+      console.error('Traditional PDF extraction also failed:', error);
       return this.createFallbackContent(file, 'PDF');
     }
   }

@@ -1,4 +1,3 @@
-
 import { TranslationProject } from '../types/translation';
 
 export interface AIProvider {
@@ -11,6 +10,7 @@ export interface AIProvider {
     requestsPerMinute: number;
     tokensPerMinute?: number;
   };
+  supportedModels?: string[];
 }
 
 export const AI_PROVIDERS: AIProvider[] = [
@@ -20,7 +20,13 @@ export const AI_PROVIDERS: AIProvider[] = [
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
     defaultModel: 'gemini-2.0-flash-exp',
     requiresKey: true,
-    rateLimits: { requestsPerMinute: 15 }
+    rateLimits: { requestsPerMinute: 10 },
+    supportedModels: [
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro-vision'
+    ]
   },
   {
     id: 'openai',
@@ -28,7 +34,13 @@ export const AI_PROVIDERS: AIProvider[] = [
     baseUrl: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4',
     requiresKey: true,
-    rateLimits: { requestsPerMinute: 60 }
+    rateLimits: { requestsPerMinute: 60 },
+    supportedModels: [
+      'gpt-4',
+      'gpt-4-turbo',
+      'gpt-3.5-turbo',
+      'gpt-4o'
+    ]
   },
   {
     id: 'chutes',
@@ -36,7 +48,12 @@ export const AI_PROVIDERS: AIProvider[] = [
     baseUrl: 'https://llm.chutes.ai/v1',
     defaultModel: 'deepseek-ai/DeepSeek-V3-0324',
     requiresKey: true,
-    rateLimits: { requestsPerMinute: 30 }
+    rateLimits: { requestsPerMinute: 30 },
+    supportedModels: [
+      'deepseek-ai/DeepSeek-V3-0324',
+      'meta-llama/Llama-3.3-70B-Instruct',
+      'anthropic/claude-3-5-sonnet-20241022'
+    ]
   },
   {
     id: 'custom',
@@ -64,7 +81,7 @@ interface RateLimitInfo {
 class AIProviderService {
   private config: ProviderConfig | null = null;
   private rateLimitInfo: RateLimitInfo = {
-    requestsPerMinute: 15,
+    requestsPerMinute: 10,
     lastRequestTime: 0,
     requestCount: 0
   };
@@ -172,7 +189,8 @@ class AIProviderService {
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Gemini API error: ${response.status} ${errorData.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
@@ -214,7 +232,8 @@ class AIProviderService {
     });
 
     if (!response.ok) {
-      throw new Error(`${provider.name} API error: ${response.status} ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`${provider.name} API error: ${response.status} ${errorData.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
@@ -284,7 +303,7 @@ IMPORTANT: Provide ONLY the translated text. Do not include explanations, notes,
 
   private async detectWithGemini(prompt: string): Promise<string> {
     const baseUrl = AI_PROVIDERS.find(p => p.id === 'gemini')!.baseUrl;
-    const model = AI_PROVIDERS.find(p => p.id === 'gemini')!.defaultModel;
+    const model = this.config!.model || AI_PROVIDERS.find(p => p.id === 'gemini')!.defaultModel;
     
     const response = await fetch(`${baseUrl}/${model}:generateContent?key=${this.config!.apiKey}`, {
       method: 'POST',
@@ -381,7 +400,7 @@ Cultural Adaptation: [score]
 
   private async evaluateWithGemini(prompt: string): Promise<string> {
     const baseUrl = AI_PROVIDERS.find(p => p.id === 'gemini')!.baseUrl;
-    const model = AI_PROVIDERS.find(p => p.id === 'gemini')!.defaultModel;
+    const model = this.config!.model || AI_PROVIDERS.find(p => p.id === 'gemini')!.defaultModel;
     
     const response = await fetch(`${baseUrl}/${model}:generateContent?key=${this.config!.apiKey}`, {
       method: 'POST',
