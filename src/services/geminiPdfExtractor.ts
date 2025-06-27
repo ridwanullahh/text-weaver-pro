@@ -1,4 +1,3 @@
-
 import { aiProviderService } from './aiProviderService';
 
 interface ExtractedPageContent {
@@ -24,8 +23,8 @@ class GeminiPdfExtractor {
     if (provider && provider.provider === 'gemini' && provider.model) {
       return provider.model;
     }
-    // Default to Gemini 2.5 Flash for extraction
-    return 'gemini-2.0-flash-exp'; // Updated to use 2.5 Flash when available
+    // Default to Gemini 1.5 Flash for extraction
+    return 'gemini-1.5-flash-002';
   }
 
   private async convertPdfPageToBase64(file: File, pageNumber: number): Promise<string> {
@@ -152,31 +151,41 @@ class GeminiPdfExtractor {
       // Convert PDF page to base64 image
       const base64Image = await this.convertPdfPageToBase64(file, pageNumber);
       
-      // Create specialized prompt for accurate text extraction
+      // Create specialized prompt for accurate text extraction across all languages
       const prompt = `
-Extract ALL text content from this PDF page image with maximum accuracy. This is CRITICAL for translation purposes.
+Extract ALL text content from this document page image with maximum accuracy. This is CRITICAL for multilingual translation purposes.
 
 EXTRACTION REQUIREMENTS:
 1. **COMPLETENESS**: Extract every single word, number, symbol, and character visible
-2. **ACCURACY**: Preserve exact spelling, capitalization, and punctuation
-3. **LANGUAGE SUPPORT**: Handle Arabic, English, and mixed-language content perfectly
+2. **ACCURACY**: Preserve exact spelling, capitalization, punctuation, and diacritics
+3. **MULTILINGUAL SUPPORT**: Handle text in ANY language including:
+   - Latin scripts (English, Spanish, French, German, etc.)
+   - Arabic script with all diacritics and vowel marks
+   - Chinese characters (Simplified and Traditional)
+   - Japanese (Hiragana, Katakana, Kanji)
+   - Cyrillic script (Russian, Ukrainian, etc.)
+   - Devanagari (Hindi, Sanskrit, etc.)
+   - African languages (Yoruba, Swahili, etc.)
+   - And ALL other writing systems
 4. **STRUCTURE**: Maintain original layout, paragraph breaks, and formatting
 5. **SPECIAL CHARACTERS**: Include all diacritics, mathematical symbols, and special marks
-6. **RTL TEXT**: Properly handle right-to-left Arabic text direction
+6. **DIRECTION**: Properly handle right-to-left (RTL) and left-to-right (LTR) text
 
 FORMATTING PRESERVATION:
 - Keep original line breaks and paragraph structure
 - Preserve bullet points, numbering, and indentation
 - Maintain spacing between sections
 - Keep headers and subheadings distinct
+- Preserve table structures if present
 
 OUTPUT INSTRUCTIONS:
 - Provide ONLY the extracted text content
 - NO explanations, comments, or metadata
 - If page appears blank, respond with "[BLANK PAGE]"
 - If text is unclear, use [UNCLEAR: best_guess] notation
+- Maintain the original reading order and text flow
 
-This text will be used for professional translation - accuracy is paramount.
+This text will be used for professional translation across multiple languages - accuracy is paramount.
       `.trim();
 
       return await this.extractWithGeminiVision(prompt, base64Image);

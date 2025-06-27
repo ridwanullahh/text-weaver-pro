@@ -267,34 +267,50 @@ const APIKeySetup: React.FC = () => {
               </div>
             </div>
 
-            {(currentConfig.provider === 'custom' || currentConfig.provider === 'openai' || currentConfig.provider === 'chutes') && (
-              <>
-                <div>
-                  <label className="block text-white/80 font-medium mb-3">
-                    Base URL {currentConfig.provider === 'custom' && '(Required)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={currentConfig.baseUrl}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, baseUrl: e.target.value })}
-                    placeholder={getProviderInfo(currentConfig.provider)?.baseUrl || 'https://api.example.com/v1'}
-                    className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
+            {/* Model Selection for All Providers */}
+            <div>
+              <label className="block text-white/80 font-medium mb-3">
+                Model {currentConfig.provider !== 'custom' && '(Optional)'}
+              </label>
+              {getProviderInfo(currentConfig.provider)?.supportedModels ? (
+                <select
+                  value={currentConfig.model || ''}
+                  onChange={(e) => setCurrentConfig({ ...currentConfig, model: e.target.value })}
+                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="" className="bg-gray-800 text-white">
+                    Default ({getProviderInfo(currentConfig.provider)?.defaultModel})
+                  </option>
+                  {getProviderInfo(currentConfig.provider)?.supportedModels?.map(model => (
+                    <option key={model} value={model} className="bg-gray-800 text-white">
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={currentConfig.model || ''}
+                  onChange={(e) => setCurrentConfig({ ...currentConfig, model: e.target.value })}
+                  placeholder={getProviderInfo(currentConfig.provider)?.defaultModel || 'Enter model name...'}
+                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              )}
+            </div>
 
-                <div>
-                  <label className="block text-white/80 font-medium mb-3">
-                    Model
-                  </label>
-                  <input
-                    type="text"
-                    value={currentConfig.model}
-                    onChange={(e) => setCurrentConfig({ ...currentConfig, model: e.target.value })}
-                    placeholder={getProviderInfo(currentConfig.provider)?.defaultModel || 'gpt-4'}
-                    className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                </div>
-              </>
+            {(currentConfig.provider === 'custom' || currentConfig.provider === 'openai' || currentConfig.provider === 'chutes') && (
+              <div>
+                <label className="block text-white/80 font-medium mb-3">
+                  Base URL {currentConfig.provider === 'custom' && '(Required)'}
+                </label>
+                <input
+                  type="text"
+                  value={currentConfig.baseUrl || ''}
+                  onChange={(e) => setCurrentConfig({ ...currentConfig, baseUrl: e.target.value })}
+                  placeholder={getProviderInfo(currentConfig.provider)?.baseUrl || 'https://api.example.com/v1'}
+                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
             )}
 
             <div className="flex gap-3">
@@ -339,7 +355,7 @@ const APIKeySetup: React.FC = () => {
             <div>
               <p className="text-white font-medium mb-2">Supported Providers</p>
               <ul className="text-white/80 text-sm space-y-1">
-                <li>• <strong>Google Gemini:</strong> Free tier with 15 requests/minute</li>
+                <li>• <strong>Google Gemini:</strong> Free tier with 10 requests/minute (uses Gemini 1.5 Flash by default)</li>
                 <li>• <strong>OpenAI:</strong> Requires paid account, 60 requests/minute</li>
                 <li>• <strong>Chutes AI:</strong> Alternative provider with competitive rates</li>
                 <li>• <strong>Custom:</strong> Any OpenAI-compatible API endpoint</li>

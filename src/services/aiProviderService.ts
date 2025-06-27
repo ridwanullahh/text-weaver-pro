@@ -18,13 +18,14 @@ export const AI_PROVIDERS: AIProvider[] = [
     id: 'gemini',
     name: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
-    defaultModel: 'gemini-2.0-flash-exp',
+    defaultModel: 'gemini-1.5-flash-002',
     requiresKey: true,
     rateLimits: { requestsPerMinute: 10 },
     supportedModels: [
-      'gemini-2.0-flash-exp',
+      'gemini-1.5-flash-002',
       'gemini-1.5-flash',
       'gemini-1.5-pro',
+      'gemini-2.0-flash-exp',
       'gemini-pro-vision'
     ]
   },
@@ -251,14 +252,22 @@ class AIProviderService {
       'CRITICAL: Preserve ALL original formatting including line breaks, paragraph structure, bullet points, numbering, and spacing.' : 
       'Focus on natural language flow while maintaining readability.';
     
+    // Enhanced prompt for multi-language support
     return `
-You are a professional translator. Translate the following text from ${sourceLanguage} to ${targetLanguage}.
+You are a professional translator specializing in accurate, culturally-aware translations across all languages and scripts.
+
+TRANSLATION TASK:
+- Source Language: ${sourceLanguage === 'auto' ? 'Auto-detect' : sourceLanguage}
+- Target Language: ${targetLanguage}
+- Content Type: ${project.fileType.toUpperCase()} document
 
 REQUIREMENTS:
-- Accuracy: Translate the exact meaning without adding or omitting information
-- Fluency: Ensure the translation reads naturally in ${targetLanguage}
-- Consistency: Use consistent terminology throughout
-- Cultural Adaptation: Adapt idioms and cultural references appropriately
+- ACCURACY: Translate the exact meaning without adding or omitting information
+- FLUENCY: Ensure the translation reads naturally in ${targetLanguage}
+- CONSISTENCY: Use consistent terminology throughout
+- CULTURAL ADAPTATION: Adapt idioms, references, and context appropriately
+- SCRIPT HANDLING: Properly handle RTL/LTR text direction and special characters
+- MULTILINGUAL SUPPORT: Maintain accuracy across all language families and writing systems
 
 STYLE: ${styleInstructions}
 FORMATTING: ${formattingInstructions}
@@ -288,7 +297,7 @@ IMPORTANT: Provide ONLY the translated text. Do not include explanations, notes,
     try {
       await this.enforceRateLimit();
       
-      const prompt = `Detect the language of the following text and respond with only the language code (e.g., 'en', 'es', 'fr', 'de', 'zh', 'ja', 'ar', 'yo'): ${text.substring(0, 500)}`;
+      const prompt = `Detect the language of the following text and respond with only the ISO 639-1 language code (e.g., 'en', 'es', 'fr', 'de', 'zh', 'ja', 'ar', 'yo', 'hi', 'ru'). If you cannot determine the language, respond with 'auto': ${text.substring(0, 500)}`;
       
       if (this.config.provider === 'gemini') {
         return this.detectWithGemini(prompt);
