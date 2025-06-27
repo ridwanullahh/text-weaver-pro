@@ -26,7 +26,13 @@ class FileExtractor {
   async extractFromFile(file: File): Promise<ExtractedContent> {
     const fileType = this.getFileType(file);
     
-    console.log(`Extracting content from ${fileType} file: ${file.name}`);
+    console.log(`Extracting content from ${fileType} file: ${file.name}, size: ${file.size} bytes`);
+    
+    // Check for empty files
+    if (file.size === 0) {
+      console.warn('File is empty (0 bytes)');
+      return this.createFallbackContent(file, fileType.toUpperCase(), 'File appears to be empty');
+    }
     
     switch (fileType) {
       case 'pdf':
@@ -80,10 +86,23 @@ class FileExtractor {
   }
 
   private async extractFromPDF(file: File): Promise<ExtractedContent> {
-    console.log('Starting PDF extraction with Gemini AI...');
+    console.log('Starting comprehensive PDF extraction...');
     
+    // First, try traditional PDF.js extraction (more reliable as primary method)
     try {
-      // First try Gemini-powered extraction for better accuracy
+      const traditionalResult = await this.extractWithTraditionalPDF(file);
+      if (traditionalResult.text && traditionalResult.text.trim().length > 50) {
+        console.log('Traditional PDF extraction successful:', traditionalResult.text.length, 'characters');
+        return traditionalResult;
+      }
+      console.log('Traditional extraction returned limited content, trying Gemini...');
+    } catch (error) {
+      console.warn('Traditional PDF extraction failed:', error);
+    }
+
+    // If traditional fails or returns minimal content, try Gemini
+    try {
+      console.log('Attempting Gemini-powered PDF extraction...');
       const geminiResult = await geminiPdfExtractor.extractWithGemini(file);
       
       if (geminiResult.text && geminiResult.text.trim().length > 0) {
@@ -101,61 +120,113 @@ class FileExtractor {
         };
       }
     } catch (error) {
-      console.warn('Gemini PDF extraction failed, falling back to traditional method:', error);
+      console.warn('Gemini PDF extraction failed:', error);
     }
 
-    // Fallback to traditional PDF.js extraction
-    try {
-      console.log('Using traditional PDF.js extraction as fallback...');
+    // If both fail, return fallback content
+    console.warn('All PDF extraction methods failed, using fallback');
+    return this.createFallbackContent(file, 'PDF', 'Content extraction failed for both AI and traditional methods');
+  }
+
+  private async extractWithTraditionalPDF(file: File): Promise<ExtractedContent> {
+    const pdfjsLib = await import('pdfjs-dist');
+    
+    // Ensure worker is properly configured
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      // Try multiple CDN sources for reliability
+      const workerSources = [
+        `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`,
+        `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`,
+        `//cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`
+      ];
       
-      const pdfjsLib = await import('pdfjs-dist');
-      
-      // Set worker source with fallback
-      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
-      }
-      
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ 
-        data: arrayBuffer,
-        verbosity: 0 // Reduce console noise
-      }).promise;
-      
-      let fullText = '';
-      const numPages = pdf.numPages;
-      
-      // Extract text from all pages
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerSources[0];
+      console.log('Set PDF.js worker source:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+    }
+    
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Validate PDF file
+    if (arrayBuffer.byteLength === 0) {
+      throw new Error('PDF file is empty');
+    }
+    
+    // Check if it starts with PDF header
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const pdfHeader = String.fromCharCode(...uint8Array.slice(0, 4));
+    if (pdfHeader !== '%PDF') {
+      throw new Error('File does not appear to be a valid PDF');
+    }
+    
+    const pdf = await pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      verbosity: 0,
+      standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true
+    }).promise;
+    
+    let fullText = '';
+    const numPages = pdf.numPages;
+    console.log(`Processing ${numPages} pages with traditional extraction...`);
+    
+    // Extract text from all pages with improved handling
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      try {
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
+        
+        // Improved text extraction with proper spacing
         const pageText = textContent.items
-          .map((item: any) => item.str)
+          .map((item: any) => {
+            // Handle different text item types
+            if (item.str) {
+              return item.str;
+            }
+            return '';
+          })
+          .filter(str => str.trim().length > 0)
           .join(' ');
         
         if (pageText.trim()) {
           fullText += pageText + '\n\n';
         }
+        
+        console.log(`Extracted page ${pageNum}/${numPages}: ${pageText.length} characters`);
+      } catch (pageError) {
+        console.warn(`Failed to extract page ${pageNum}:`, pageError);
+        // Continue with other pages
       }
-      
-      // Get metadata with proper typing
-      const metadata = await pdf.getMetadata();
-      const info = metadata.info as PDFMetadata;
-      
-      return {
-        text: fullText.trim(),
-        metadata: {
-          title: info?.Title || file.name.split('.')[0],
-          author: info?.Author,
-          pages: numPages,
-          wordCount: this.countWords(fullText),
-          fileSize: this.formatFileSize(file.size),
-          lastModified: new Date(file.lastModified)
-        }
-      };
-    } catch (error) {
-      console.error('Traditional PDF extraction also failed:', error);
-      return this.createFallbackContent(file, 'PDF');
     }
+    
+    // Get metadata
+    let metadata: any = {};
+    try {
+      const pdfMetadata = await pdf.getMetadata();
+      const info = pdfMetadata.info as PDFMetadata;
+      metadata = {
+        title: info?.Title || file.name.split('.')[0],
+        author: info?.Author,
+        pages: numPages,
+        wordCount: this.countWords(fullText),
+        fileSize: this.formatFileSize(file.size),
+        lastModified: new Date(file.lastModified)
+      };
+    } catch (metadataError) {
+      console.warn('Failed to extract PDF metadata:', metadataError);
+      metadata = {
+        title: file.name.split('.')[0],
+        pages: numPages,
+        wordCount: this.countWords(fullText),
+        fileSize: this.formatFileSize(file.size),
+        lastModified: new Date(file.lastModified)
+      };
+    }
+    
+    return {
+      text: fullText.trim(),
+      metadata
+    };
   }
 
   private async extractFromDocx(file: File): Promise<ExtractedContent> {
@@ -378,8 +449,9 @@ class FileExtractor {
     }
   }
 
-  private createFallbackContent(file: File, fileType: string): ExtractedContent {
-    const fallbackText = `${fileType} file "${file.name}" has been uploaded. Content extraction had issues but the file is ready for processing. File size: ${this.formatFileSize(file.size)}.`;
+  private createFallbackContent(file: File, fileType: string, reason?: string): ExtractedContent {
+    const reasonText = reason ? ` (${reason})` : '';
+    const fallbackText = `${fileType} file "${file.name}" has been uploaded${reasonText}. Please try re-uploading the file or contact support if the issue persists. File size: ${this.formatFileSize(file.size)}.`;
     
     return {
       text: fallbackText,
