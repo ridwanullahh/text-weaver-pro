@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, RotateCcw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Play, Pause, RotateCcw, CheckCircle, AlertCircle, Clock, Info } from 'lucide-react';
 import { TranslationProject } from '../types/translation';
 import { translationService } from '../services/translationService';
 import { dbUtils } from '../utils/database';
@@ -17,10 +17,42 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
   const [estimatedTime, setEstimatedTime] = useState(0);
   const [currentLanguage, setCurrentLanguage] = useState('');
   const [tokensUsed, setTokensUsed] = useState(0);
+  const [actualCompletionStatus, setActualCompletionStatus] = useState<{
+    completed: number;
+    total: number;
+    percentage: number;
+  }>({ completed: 0, total: 0, percentage: 0 });
 
   useEffect(() => {
     setCurrentProgress(project.progress);
-  }, [project.progress]);
+    checkActualCompletionStatus();
+  }, [project.progress, project.id]);
+
+  const checkActualCompletionStatus = async () => {
+    try {
+      const chunks = await dbUtils.getProjectChunks(project.id!);
+      const totalChunks = chunks.length * project.targetLanguages.length;
+      
+      let actuallyCompleted = 0;
+      chunks.forEach(chunk => {
+        project.targetLanguages.forEach(language => {
+          if (chunk.translations[language] && chunk.translations[language].trim()) {
+            actuallyCompleted++;
+          }
+        });
+      });
+      
+      const actualPercentage = totalChunks > 0 ? (actuallyCompleted / totalChunks) * 100 : 0;
+      
+      setActualCompletionStatus({
+        completed: actuallyCompleted,
+        total: totalChunks,
+        percentage: actualPercentage
+      });
+    } catch (error) {
+      console.error('Error checking completion status:', error);
+    }
+  };
 
   const handleStartTranslation = async () => {
     if (project.targetLanguages.length === 0) {
@@ -41,9 +73,11 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
           setCurrentLanguage(progress.currentLanguage);
           setEstimatedTime(progress.estimatedTimeRemaining);
           setTokensUsed(progress.tokensUsed);
+          checkActualCompletionStatus();
         },
         onComplete: () => {
           setIsTranslating(false);
+          checkActualCompletionStatus();
           toast({
             title: "Translation Complete",
             description: "Your project has been translated successfully!",
@@ -51,6 +85,7 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
         },
         onError: (error) => {
           setIsTranslating(false);
+          checkActualCompletionStatus();
           toast({
             title: "Translation Error",
             description: error.message,
@@ -85,6 +120,7 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
     setCurrentLanguage('');
     setEstimatedTime(0);
     setTokensUsed(0);
+    setActualCompletionStatus({ completed: 0, total: 0, percentage: 0 });
     
     toast({
       title: "Translation Reset",
@@ -106,6 +142,9 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
     }
   };
 
+  const isActuallyCompleted = actualCompletionStatus.percentage >= 100;
+  const hasPartialCompletion = actualCompletionStatus.completed > 0 && !isActuallyCompleted;
+
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20">
       <div className="flex items-center justify-between mb-8">
@@ -115,7 +154,7 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
         </h3>
         
         <div className="flex items-center gap-3">
-          {project.status === 'completed' ? (
+          {isActuallyCompleted ? (
             <motion.button
               onClick={handleResetTranslation}
               className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all duration-300"
@@ -135,7 +174,7 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
                   whileTap={{ scale: 0.95 }}
                 >
                   <Play className="w-4 h-4" />
-                  {project.progress > 0 ? 'Resume' : 'Start'} Translation
+                  {actualCompletionStatus.completed > 0 ? 'Resume' : 'Start'} Translation
                 </motion.button>
               ) : (
                 <motion.button
@@ -153,21 +192,41 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="mb-8">
+      {/* Actual Progress Bar */}
+      <div className="mb-6">
         <div className="flex justify-between text-white/80 mb-2">
-          <span>Overall Progress</span>
-          <span>{Math.round(currentProgress)}%</span>
+          <span>Actual Translation Progress</span>
+          <span>{Math.round(actualCompletionStatus.percentage)}%</span>
         </div>
         <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
           <motion.div
-            className="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full"
+            className={`h-full rounded-full ${
+              isActuallyCompleted 
+                ? 'bg-gradient-to-r from-green-500 to-green-400' 
+                : 'bg-gradient-to-r from-purple-500 to-blue-500'
+            }`}
             initial={{ width: 0 }}
-            animate={{ width: `${currentProgress}%` }}
+            animate={{ width: `${actualCompletionStatus.percentage}%` }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           />
         </div>
       </div>
+
+      {/* Status Alert */}
+      {hasPartialCompletion && (
+        <div className="mb-6 bg-yellow-500/20 border border-yellow-500/30 rounded-2xl p-4">
+          <div className="flex items-center gap-3">
+            <Info className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+            <div>
+              <p className="text-yellow-200 font-medium">Partial Translation Detected</p>
+              <p className="text-yellow-200/80 text-sm">
+                {actualCompletionStatus.completed} of {actualCompletionStatus.total} chunks completed. 
+                Some chunks may have failed or been skipped during previous attempts.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Statistics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -177,7 +236,10 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
             <span className="text-white/80 text-sm">Completed</span>
           </div>
           <p className="text-2xl font-bold text-white">
-            {project.completedChunks}/{project.totalChunks}
+            {actualCompletionStatus.completed}/{actualCompletionStatus.total}
+          </p>
+          <p className="text-white/60 text-xs">
+            {Math.round(actualCompletionStatus.percentage)}% actual
           </p>
         </div>
 

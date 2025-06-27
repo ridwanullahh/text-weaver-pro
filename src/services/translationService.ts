@@ -1,12 +1,14 @@
+
 import { TranslationProject, TranslationChunk } from '../types/translation';
 import { dbUtils } from '../utils/database';
-import { geminiService } from './geminiService';
+import { aiProviderService } from './aiProviderService';
 
 interface TranslationProgress {
   percentage: number;
   currentLanguage: string;
   estimatedTimeRemaining: number;
   tokensUsed: number;
+  currentChunkIndex?: number;
 }
 
 interface TranslationCallbacks {
@@ -17,6 +19,7 @@ interface TranslationCallbacks {
 
 class TranslationService {
   private activeTranslations = new Map<number, boolean>();
+  private processingQueue = new Map<number, { chunks: TranslationChunk[], currentIndex: number }>();
 
   async startTranslation(project: TranslationProject, callbacks: TranslationCallbacks) {
     if (this.activeTranslations.get(project.id!)) {
@@ -36,17 +39,26 @@ class TranslationService {
       const existingChunks = await dbUtils.getProjectChunks(project.id!);
       const chunksToProcess = existingChunks.length > 0 ? existingChunks : await this.createChunks(project.id!, chunks);
       
+      // Initialize processing queue
+      this.processingQueue.set(project.id!, { chunks: chunksToProcess, currentIndex: 0 });
+      
       let completedChunks = 0;
       let totalChunks = chunksToProcess.length * project.targetLanguages.length;
       let tokensUsed = 0;
       const startTime = new Date();
       
-      // Process each target language
+      // Process each target language sequentially
       for (const targetLanguage of project.targetLanguages) {
-        if (!this.activeTranslations.get(project.id!)) break; // Check if paused
+        if (!this.activeTranslations.get(project.id!)) break;
         
-        for (const chunk of chunksToProcess) {
-          if (!this.activeTranslations.get(project.id!)) break; // Check if paused
+        // Process chunks sequentially with proper rate limiting
+        for (let chunkIndex = 0; chunkIndex < chunksToProcess.length; chunkIndex++) {
+          if (!this.activeTranslations.get(project.id!)) break;
+          
+          const chunk = chunksToProcess[chunkIndex];
+          
+          // Update current chunk index for UI tracking
+          this.processingQueue.set(project.id!, { chunks: chunksToProcess, currentIndex: chunkIndex });
           
           // Check if this chunk is already translated for this language
           if (chunk.translations[targetLanguage] && chunk.status === 'completed') {
@@ -54,72 +66,117 @@ class TranslationService {
             continue;
           }
           
-          try {
-            // Use Gemini service for translation
-            const translatedText = await geminiService.translateText(
-              chunk.originalText,
-              project.sourceLanguage,
-              targetLanguage,
-              project
-            );
-            
-            // Update chunk with translation
-            chunk.translations[targetLanguage] = translatedText;
-            chunk.status = 'completed';
-            await dbUtils.updateChunk(chunk.id!, { 
-              translations: chunk.translations, 
-              status: 'completed' 
-            });
-            
-            completedChunks++;
-            tokensUsed += this.estimateTokens(chunk.originalText + translatedText);
-            
-            // Calculate progress
-            const percentage = (completedChunks / totalChunks) * 100;
-            const estimatedTimeRemaining = this.calculateETA(completedChunks, totalChunks, startTime);
-            
-            callbacks.onProgress({
-              percentage,
-              currentLanguage: targetLanguage,
-              estimatedTimeRemaining,
-              tokensUsed
-            });
-            
-            // Update project progress
-            await dbUtils.updateProject(project.id!, { 
-              progress: percentage,
-              completedChunks: Math.floor(completedChunks / project.targetLanguages.length)
-            });
-            
-          } catch (error) {
-            console.error(`Error translating chunk ${chunk.id} to ${targetLanguage}:`, error);
-            chunk.retryCount = (chunk.retryCount || 0) + 1;
-            
-            if (chunk.retryCount >= project.settings.maxRetries) {
-              chunk.status = 'error';
+          // Mark chunk as processing
+          chunk.status = 'processing';
+          await dbUtils.updateChunk(chunk.id!, { status: 'processing' });
+          
+          let retryCount = 0;
+          let translationSuccess = false;
+          
+          // Retry loop with exponential backoff
+          while (!translationSuccess && retryCount < project.settings.maxRetries) {
+            try {
+              // Wait for rate limit before attempting translation
+              await this.waitForRateLimit();
+              
+              console.log(`Translating chunk ${chunkIndex + 1}/${chunksToProcess.length} to ${targetLanguage} (attempt ${retryCount + 1})`);
+              
+              // Use AI provider service for translation
+              const translatedText = await aiProviderService.translateText(
+                chunk.originalText,
+                project.sourceLanguage,
+                targetLanguage,
+                project
+              );
+              
+              // Update chunk with translation
+              chunk.translations[targetLanguage] = translatedText;
+              chunk.status = 'completed';
               await dbUtils.updateChunk(chunk.id!, { 
-                status: 'error', 
-                retryCount: chunk.retryCount 
+                translations: chunk.translations, 
+                status: 'completed',
+                retryCount: retryCount
               });
+              
+              completedChunks++;
+              tokensUsed += this.estimateTokens(chunk.originalText + translatedText);
+              translationSuccess = true;
+              
+              console.log(`Successfully translated chunk ${chunkIndex + 1} to ${targetLanguage}`);
+              
+            } catch (error) {
+              console.error(`Error translating chunk ${chunk.id} to ${targetLanguage} (attempt ${retryCount + 1}):`, error);
+              retryCount++;
+              
+              if (retryCount < project.settings.maxRetries) {
+                // Exponential backoff: 2^retryCount seconds
+                const waitTime = Math.pow(2, retryCount) * 1000;
+                console.log(`Retrying in ${waitTime}ms...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+              }
             }
           }
           
-          // Small delay to prevent overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // If all retries failed, mark as error
+          if (!translationSuccess) {
+            chunk.status = 'error';
+            await dbUtils.updateChunk(chunk.id!, { 
+              status: 'error', 
+              retryCount: retryCount 
+            });
+            console.error(`Failed to translate chunk ${chunkIndex + 1} after ${retryCount} attempts`);
+          }
+          
+          // Calculate and report progress
+          const percentage = (completedChunks / totalChunks) * 100;
+          const estimatedTimeRemaining = this.calculateETA(completedChunks, totalChunks, startTime);
+          
+          callbacks.onProgress({
+            percentage,
+            currentLanguage: targetLanguage,
+            estimatedTimeRemaining,
+            tokensUsed,
+            currentChunkIndex: chunkIndex
+          });
+          
+          // Update project progress
+          await dbUtils.updateProject(project.id!, { 
+            progress: percentage,
+            completedChunks: Math.floor(completedChunks / project.targetLanguages.length)
+          });
+          
+          // Rate limiting: wait between chunks to avoid hitting limits
+          if (chunkIndex < chunksToProcess.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // 500ms between chunks
+          }
         }
       }
       
-      // Mark project as completed
+      // Check if translation was actually completed
+      const actualCompletedChunks = chunksToProcess.filter(chunk => 
+        project.targetLanguages.every(lang => chunk.translations[lang])
+      ).length;
+      
+      const isActuallyCompleted = actualCompletedChunks === chunksToProcess.length;
+      
+      // Mark project as completed only if all chunks are actually translated
       await dbUtils.updateProject(project.id!, { 
-        status: 'completed', 
-        progress: 100 
+        status: isActuallyCompleted ? 'completed' : 'error', 
+        progress: isActuallyCompleted ? 100 : (actualCompletedChunks / chunksToProcess.length) * 100
       });
       
       this.activeTranslations.delete(project.id!);
-      callbacks.onComplete();
+      this.processingQueue.delete(project.id!);
+      
+      if (isActuallyCompleted) {
+        callbacks.onComplete();
+      } else {
+        callbacks.onError(new Error(`Translation incomplete. ${actualCompletedChunks}/${chunksToProcess.length} chunks completed.`));
+      }
       
     } catch (error) {
       this.activeTranslations.delete(project.id!);
+      this.processingQueue.delete(project.id!);
       await dbUtils.updateProject(project.id!, { status: 'error' });
       callbacks.onError(error as Error);
     }
@@ -132,6 +189,7 @@ class TranslationService {
 
   async resetTranslation(projectId: number) {
     this.activeTranslations.delete(projectId);
+    this.processingQueue.delete(projectId);
     
     // Reset all chunks
     const chunks = await dbUtils.getProjectChunks(projectId);
@@ -151,9 +209,25 @@ class TranslationService {
     });
   }
 
+  getCurrentChunkIndex(projectId: number): number {
+    return this.processingQueue.get(projectId)?.currentIndex || 0;
+  }
+
+  private async waitForRateLimit(): Promise<void> {
+    const rateLimitStatus = aiProviderService.getRateLimitStatus();
+    
+    if (rateLimitStatus.remaining <= 0) {
+      const waitTime = rateLimitStatus.resetTime.getTime() - Date.now();
+      if (waitTime > 0) {
+        console.log(`Rate limit reached. Waiting ${Math.ceil(waitTime / 1000)} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime + 1000)); // Add 1 second buffer
+      }
+    }
+  }
+
   async detectLanguage(text: string): Promise<string> {
     try {
-      return await geminiService.detectLanguage(text);
+      return await aiProviderService.detectLanguage(text);
     } catch (error) {
       console.error('Language detection failed:', error);
       return 'auto';
@@ -172,10 +246,9 @@ class TranslationService {
     overall: number;
   }> {
     try {
-      return await geminiService.getTranslationQuality(originalText, translatedText, targetLanguage);
+      return await aiProviderService.getTranslationQuality(originalText, translatedText, targetLanguage);
     } catch (error) {
       console.error('Quality assessment failed:', error);
-      // Return default scores
       return {
         accuracy: 85,
         fluency: 82,
@@ -228,7 +301,6 @@ class TranslationService {
   }
 
   private estimateTokens(text: string): number {
-    // Rough estimation: 1 token ≈ 4 characters
     return Math.ceil(text.length / 4);
   }
 
