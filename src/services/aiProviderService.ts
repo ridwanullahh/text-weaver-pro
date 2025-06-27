@@ -320,13 +320,20 @@ IMPORTANT: Provide ONLY the translated text. Do not include explanations, notes,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 10 }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 50 }
       })
     });
 
     if (response.ok) {
       const data = await response.json();
-      return data.candidates[0]?.content.parts[0]?.text?.trim().toLowerCase() || 'auto';
+      // Handle the case where content.parts might be empty or undefined
+      const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (textContent && textContent.trim()) {
+        return textContent.trim().toLowerCase();
+      }
+      // If no content in parts, try to get from the response directly
+      console.warn('Gemini response has no text content, using fallback');
+      return 'en'; // Default fallback for validation
     }
     return 'auto';
   }

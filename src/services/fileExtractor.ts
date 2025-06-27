@@ -88,24 +88,18 @@ class FileExtractor {
   private async extractFromPDF(file: File): Promise<ExtractedContent> {
     console.log('Starting comprehensive PDF extraction...');
     
-    // First, try traditional PDF.js extraction (more reliable as primary method)
-    try {
-      const traditionalResult = await this.extractWithTraditionalPDF(file);
-      if (traditionalResult.text && traditionalResult.text.trim().length > 50) {
-        console.log('Traditional PDF extraction successful:', traditionalResult.text.length, 'characters');
-        return traditionalResult;
-      }
-      console.log('Traditional extraction returned limited content, trying Gemini...');
-    } catch (error) {
-      console.warn('Traditional PDF extraction failed:', error);
+    // Validate file first
+    if (file.size === 0) {
+      console.warn('PDF file is empty (0 bytes)');
+      return this.createFallbackContent(file, 'PDF', 'File appears to be empty (0 bytes)');
     }
-
-    // If traditional fails or returns minimal content, try Gemini
+    
+    // Try Gemini extraction first (more accurate for multilingual content)
     try {
       console.log('Attempting Gemini-powered PDF extraction...');
       const geminiResult = await geminiPdfExtractor.extractWithGemini(file);
       
-      if (geminiResult.text && geminiResult.text.trim().length > 0) {
+      if (geminiResult.text && geminiResult.text.trim().length > 0 && !geminiResult.text.includes('extraction failed')) {
         console.log('Gemini PDF extraction successful:', geminiResult.text.length, 'characters');
         
         return {
@@ -119,13 +113,26 @@ class FileExtractor {
           }
         };
       }
+      console.log('Gemini extraction returned limited content, trying traditional fallback...');
     } catch (error) {
-      console.warn('Gemini PDF extraction failed:', error);
+      console.warn('Gemini PDF extraction failed, falling back to traditional:', error);
+    }
+
+    // Fallback to traditional PDF.js extraction
+    try {
+      const traditionalResult = await this.extractWithTraditionalPDF(file);
+      if (traditionalResult.text && traditionalResult.text.trim().length > 0) {
+        console.log('Traditional PDF extraction successful as fallback:', traditionalResult.text.length, 'characters');
+        return traditionalResult;
+      }
+      console.log('Traditional extraction also returned limited content');
+    } catch (error) {
+      console.warn('Traditional PDF extraction also failed:', error);
     }
 
     // If both fail, return fallback content
     console.warn('All PDF extraction methods failed, using fallback');
-    return this.createFallbackContent(file, 'PDF', 'Content extraction failed for both AI and traditional methods');
+    return this.createFallbackContent(file, 'PDF', 'Both AI and traditional extraction methods failed');
   }
 
   private async extractWithTraditionalPDF(file: File): Promise<ExtractedContent> {
