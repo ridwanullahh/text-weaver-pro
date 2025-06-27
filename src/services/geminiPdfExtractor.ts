@@ -109,15 +109,31 @@ class GeminiPdfExtractor {
       // First, get the total number of pages
       const pdfjsLib = await import('pdfjs-dist');
       
-      // Configure worker
+      // Configure worker with better error handling
       if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+        const workerSources = [
+          `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`,
+          `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`,
+          `//cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`
+        ];
+        
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerSources[0];
+        console.log('Configured PDF.js worker for Gemini extraction:', pdfjsLib.GlobalWorkerOptions.workerSrc);
       }
       
       const arrayBuffer = await file.arrayBuffer();
+      
+      // Additional validation
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error('PDF file arrayBuffer is empty');
+      }
+      
       const pdf = await pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        verbosity: 0 
+        verbosity: 0,
+        standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/',
+        cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+        cMapPacked: true
       }).promise;
       const totalPages = pdf.numPages;
       
@@ -128,7 +144,7 @@ class GeminiPdfExtractor {
         console.log(`Processing page ${pageNum}/${totalPages}...`);
         
         let attempts = 0;
-        const maxAttempts = 3;
+        const maxAttempts = 2; // Reduced attempts to avoid timeout
         let success = false;
         
         while (attempts < maxAttempts && !success) {
@@ -137,7 +153,7 @@ class GeminiPdfExtractor {
             extractedPages.push({
               pageNumber: pageNum,
               text: extractedText,
-              confidence: 0.95 // Gemini typically has high confidence
+              confidence: 0.95
             });
             success = true;
             console.log(`Successfully extracted page ${pageNum} (${extractedText.length} characters)`);
@@ -146,25 +162,24 @@ class GeminiPdfExtractor {
             console.error(`Attempt ${attempts} failed for page ${pageNum}:`, error);
             
             if (attempts < maxAttempts) {
-              // Wait before retry (exponential backoff)
-              const waitTime = Math.pow(2, attempts) * 2000; // 2s, 4s, 8s
+              const waitTime = 3000; // Shorter wait time
               console.log(`Waiting ${waitTime}ms before retry...`);
               await new Promise(resolve => setTimeout(resolve, waitTime));
             } else {
               console.error(`Failed to extract page ${pageNum} after ${maxAttempts} attempts`);
               extractedPages.push({
                 pageNumber: pageNum,
-                text: `[Page ${pageNum} extraction failed - please check API configuration]`,
+                text: `[Page ${pageNum} extraction failed]`,
                 confidence: 0.0
               });
             }
           }
         }
         
-        // Rate limiting: wait between pages to avoid hitting Gemini limits (10 requests/minute)
+        // Rate limiting: wait between pages to avoid hitting Gemini limits
         if (pageNum < totalPages) {
           console.log('Waiting between pages to respect rate limits...');
-          await new Promise(resolve => setTimeout(resolve, 7000)); // 7 seconds for safe margin
+          await new Promise(resolve => setTimeout(resolve, 6000)); // Slightly reduced wait time
         }
       }
       
