@@ -18,7 +18,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     id: 'gemini',
     name: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
-    defaultModel: 'gemini-1.5-flash-002',
+    defaultModel: 'gemini-2.5-flash',
     requiresKey: true,
     rateLimits: { requestsPerMinute: 10 },
     supportedModels: [
@@ -26,6 +26,7 @@ export const AI_PROVIDERS: AIProvider[] = [
       'gemini-1.5-flash',
       'gemini-1.5-pro',
       'gemini-2.0-flash-exp',
+      'gemini-2.5-flash',
       'gemini-pro-vision'
     ]
   },
