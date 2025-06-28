@@ -1,4 +1,3 @@
-
 // Universal SDK for GitHub-based backend with Cloudinary integration
 interface UniversalSDKConfig {
   owner: string;
@@ -26,6 +25,7 @@ interface User {
   walletBalance: number;
   dailyTextTranslations: number;
   lastResetDate: string;
+  isActive: boolean;
 }
 
 class UniversalSDK {
@@ -131,11 +131,27 @@ class UniversalSDK {
   }
 
   async login(email: string, password: string): Promise<string> {
-    const user = (await this.get<User>('users')).find(u => u.email === email);
-    if (!user || !this.verifyPassword(password, user.password!)) {
+    try {
+      const users = await this.get<User>('users');
+      const user = users.find(u => u.email === email);
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      if (!user.password) {
+        throw new Error('Password not set for user');
+      }
+      
+      if (!this.verifyPassword(password, user.password)) {
+        throw new Error('Invalid password');
+      }
+      
+      return this.createSession(user);
+    } catch (error) {
+      console.error('Login error:', error);
       throw new Error('Invalid credentials');
     }
-    return this.createSession(user);
   }
 
   async register(email: string, password: string, profile: any): Promise<User> {
@@ -196,7 +212,9 @@ class UniversalSDK {
   }
 
   private async seedDemoData(): Promise<void> {
-    // Seed demo users
+    console.log('Seeding demo data...');
+    
+    // Seed demo users with proper password hashes
     const demoUsers = [
       {
         id: '1',
@@ -209,7 +227,8 @@ class UniversalSDK {
         permissions: [],
         walletBalance: 50,
         dailyTextTranslations: 0,
-        lastResetDate: new Date().toDateString()
+        lastResetDate: new Date().toDateString(),
+        isActive: true
       },
       {
         id: '2',
@@ -222,11 +241,17 @@ class UniversalSDK {
         permissions: ['manage_users', 'manage_content'],
         walletBalance: 100,
         dailyTextTranslations: 0,
-        lastResetDate: new Date().toDateString()
+        lastResetDate: new Date().toDateString(),
+        isActive: true
       }
     ];
 
-    await this.save('users', demoUsers);
+    try {
+      await this.save('users', demoUsers);
+      console.log('Demo users seeded successfully');
+    } catch (error) {
+      console.error('Failed to seed demo users:', error);
+    }
 
     // Seed invite codes
     const inviteCodes = [
