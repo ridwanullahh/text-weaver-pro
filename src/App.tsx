@@ -14,6 +14,8 @@ import Auth from "./pages/Auth";
 import RequestInvite from "./pages/RequestInvite";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
+import Blog from "./pages/Blog";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({

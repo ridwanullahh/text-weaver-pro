@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
@@ -151,7 +150,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       const totalWords = combinedContent.split(/\s+/).filter(word => word.length > 0).length;
       
       const project: TranslationProject = {
-        id: crypto.randomUUID(),
+        id: Date.now(), // Use number instead of UUID string
         name: completedFiles.length === 1 
           ? completedFiles[0].file.name.split('.')[0]
           : `Multi-file Project (${completedFiles.length} files)`,
@@ -159,7 +158,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         targetLanguages: [],
         originalContent: combinedContent,
         extractedChunks: [{
-          id: crypto.randomUUID(),
+          id: Date.now().toString(),
           content: combinedContent,
           metadata: {
             source: 'file_upload',
@@ -172,14 +171,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
             }))
           }
         }],
-        status: 'ready',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        progress: {
-          chunksProcessed: 0,
-          totalChunks: 1,
-          percentage: 0
-        }
+        status: 'pending', // Use valid status type
+        createdAt: new Date(), // Use Date object
+        updatedAt: new Date(), // Use Date object
+        progress: 0 // Use number instead of object
       };
 
       await translationDB.projects.add(project);
