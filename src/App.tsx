@@ -15,7 +15,13 @@ import RequestInvite from "./pages/RequestInvite";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import Blog from "./pages/Blog";
+import BlogSingle from "./pages/BlogSingle";
 import Contact from "./pages/Contact";
+import Features from "./pages/Features";
+import Pricing from "./pages/Pricing";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -51,11 +57,14 @@ const AppContent = () => {
 
   useEffect(() => {
     initializeSDK()
-      .then(setSdkReady)
+      .then(() => {
+        setSdkReady(true);
+        console.log('SDK initialized successfully');
+      })
       .catch(error => {
         console.error('Failed to initialize SDK:', error);
-        setInitError('Failed to initialize application. Please check your configuration.');
-        setSdkReady(true); // Allow app to continue with mock data
+        setInitError('Failed to initialize application. Using demo mode.');
+        setSdkReady(true); // Allow app to continue with demo data
       });
   }, []);
 
@@ -67,7 +76,7 @@ const AppContent = () => {
           <h2 className="text-2xl font-bold text-white mb-4">Initializing TextWeaver Pro</h2>
           <p className="text-white/60">Setting up your translation workspace...</p>
           {initError && (
-            <p className="text-red-400 text-sm mt-4 max-w-md mx-auto">{initError}</p>
+            <p className="text-orange-400 text-sm mt-4 max-w-md mx-auto">{initError}</p>
           )}
         </div>
       </div>
@@ -81,8 +90,15 @@ const AppContent = () => {
       <Route path="/login" element={<Auth />} />
       <Route path="/register" element={<Auth />} />
       <Route path="/request-invite" element={<RequestInvite />} />
+      <Route path="/features" element={<Features />} />
+      <Route path="/pricing" element={<Pricing />} />
       <Route path="/blog" element={<Blog />} />
+      <Route path="/blog/:slug" element={<BlogSingle />} />
       <Route path="/contact" element={<Contact />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/docs" element={<Documentation />} />
+      <Route path="/docs/:slug" element={<Documentation />} />
       
       {/* Protected Routes */}
       <Route path="/app" element={
@@ -90,7 +106,7 @@ const AppContent = () => {
           <Index />
         </ProtectedRoute>
       } />
-      <Route path="/admin" element={
+      <Route path="/admin/*" element={
         <ProtectedRoute>
           <Admin />
         </ProtectedRoute>
