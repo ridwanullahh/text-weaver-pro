@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
@@ -149,32 +150,35 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
 
       const totalWords = combinedContent.split(/\s+/).filter(word => word.length > 0).length;
       
+      // Determine file type based on the first uploaded file
+      const firstFile = completedFiles[0];
+      let fileType: 'text' | 'pdf' | 'docx' | 'epub' = 'text';
+      if (firstFile.file.type === 'application/pdf') fileType = 'pdf';
+      else if (firstFile.file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') fileType = 'docx';
+      else if (firstFile.file.type === 'application/epub+zip') fileType = 'epub';
+      
       const project: TranslationProject = {
-        id: Date.now(), // Use number instead of UUID string
+        id: Date.now(),
         name: completedFiles.length === 1 
           ? completedFiles[0].file.name.split('.')[0]
           : `Multi-file Project (${completedFiles.length} files)`,
         sourceLanguage: 'auto',
         targetLanguages: [],
         originalContent: combinedContent,
-        extractedChunks: [{
-          id: Date.now().toString(),
-          content: combinedContent,
-          metadata: {
-            source: 'file_upload',
-            wordCount: totalWords,
-            files: completedFiles.map(f => ({
-              name: f.file.name,
-              size: f.file.size,
-              type: f.file.type,
-              metadata: f.metadata
-            }))
-          }
-        }],
-        status: 'pending', // Use valid status type
-        createdAt: new Date(), // Use Date object
-        updatedAt: new Date(), // Use Date object
-        progress: 0 // Use number instead of object
+        fileType,
+        totalChunks: 1,
+        completedChunks: 0,
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        progress: 0,
+        settings: {
+          preserveFormatting: true,
+          chunkSize: 1000,
+          maxRetries: 3,
+          translationStyle: 'formal',
+          contextAware: true
+        }
       };
 
       await translationDB.projects.add(project);
