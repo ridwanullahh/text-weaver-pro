@@ -23,7 +23,7 @@ interface PDFMetadata {
 }
 
 class FileExtractor {
-  async extractFromFile(file: File): Promise<ExtractedContent> {
+  async extractFromFile(file: File, pdfExtractionMethod: 'ai' | 'traditional' = 'ai'): Promise<ExtractedContent> {
     const fileType = this.getFileType(file);
     
     console.log(`Extracting content from ${fileType} file: ${file.name}, size: ${file.size} bytes`);
@@ -36,7 +36,7 @@ class FileExtractor {
     
     switch (fileType) {
       case 'pdf':
-        return await this.extractFromPDF(file);
+        return await this.extractFromPDF(file, pdfExtractionMethod);
       case 'docx':
         return await this.extractFromDocx(file);
       case 'txt':
@@ -85,8 +85,8 @@ class FileExtractor {
     return 'unknown';
   }
 
-  private async extractFromPDF(file: File): Promise<ExtractedContent> {
-    console.log('Starting comprehensive PDF extraction...');
+  private async extractFromPDF(file: File, method: 'ai' | 'traditional' = 'ai'): Promise<ExtractedContent> {
+    console.log(`Starting PDF extraction using ${method} method...`);
     
     // Validate file first
     if (file.size === 0) {
@@ -94,40 +94,76 @@ class FileExtractor {
       return this.createFallbackContent(file, 'PDF', 'File appears to be empty (0 bytes)');
     }
     
-    // Try Gemini extraction first (more accurate for multilingual content)
-    try {
-      console.log('Attempting Gemini-powered PDF extraction...');
-      const geminiResult = await geminiPdfExtractor.extractWithGemini(file);
-      
-      if (geminiResult.text && geminiResult.text.trim().length > 0 && !geminiResult.text.includes('extraction failed')) {
-        console.log('Gemini PDF extraction successful:', geminiResult.text.length, 'characters');
+    if (method === 'ai') {
+      // Try Gemini extraction first
+      try {
+        console.log('Attempting Gemini-powered PDF extraction...');
+        const geminiResult = await geminiPdfExtractor.extractWithGemini(file);
         
-        return {
-          text: geminiResult.text,
-          metadata: {
-            title: file.name.split('.')[0],
-            pages: geminiResult.metadata.totalPages,
-            wordCount: this.countWords(geminiResult.text),
-            fileSize: this.formatFileSize(file.size),
-            lastModified: new Date(file.lastModified)
-          }
-        };
+        if (geminiResult.text && geminiResult.text.trim().length > 0 && !geminiResult.text.includes('extraction failed')) {
+          console.log('Gemini PDF extraction successful:', geminiResult.text.length, 'characters');
+          
+          return {
+            text: geminiResult.text,
+            metadata: {
+              title: file.name.split('.')[0],
+              pages: geminiResult.metadata.totalPages,
+              wordCount: this.countWords(geminiResult.text),
+              fileSize: this.formatFileSize(file.size),
+              lastModified: new Date(file.lastModified)
+            }
+          };
+        }
+        console.log('Gemini extraction returned limited content, trying traditional fallback...');
+      } catch (error) {
+        console.warn('Gemini PDF extraction failed, falling back to traditional:', error);
       }
-      console.log('Gemini extraction returned limited content, trying traditional fallback...');
-    } catch (error) {
-      console.warn('Gemini PDF extraction failed, falling back to traditional:', error);
-    }
 
-    // Fallback to traditional PDF.js extraction
-    try {
-      const traditionalResult = await this.extractWithTraditionalPDF(file);
-      if (traditionalResult.text && traditionalResult.text.trim().length > 0) {
-        console.log('Traditional PDF extraction successful as fallback:', traditionalResult.text.length, 'characters');
-        return traditionalResult;
+      // Fallback to traditional if AI fails
+      try {
+        const traditionalResult = await this.extractWithTraditionalPDF(file);
+        if (traditionalResult.text && traditionalResult.text.trim().length > 0) {
+          console.log('Traditional PDF extraction successful as fallback:', traditionalResult.text.length, 'characters');
+          return traditionalResult;
+        }
+      } catch (error) {
+        console.warn('Traditional PDF extraction also failed:', error);
       }
-      console.log('Traditional extraction also returned limited content');
-    } catch (error) {
-      console.warn('Traditional PDF extraction also failed:', error);
+    } else {
+      // Use traditional method first
+      try {
+        const traditionalResult = await this.extractWithTraditionalPDF(file);
+        if (traditionalResult.text && traditionalResult.text.trim().length > 0) {
+          console.log('Traditional PDF extraction successful:', traditionalResult.text.length, 'characters');
+          return traditionalResult;
+        }
+        console.log('Traditional extraction returned limited content, trying AI fallback...');
+      } catch (error) {
+        console.warn('Traditional PDF extraction failed, falling back to AI:', error);
+      }
+
+      // Fallback to AI if traditional fails
+      try {
+        console.log('Attempting Gemini-powered PDF extraction as fallback...');
+        const geminiResult = await geminiPdfExtractor.extractWithGemini(file);
+        
+        if (geminiResult.text && geminiResult.text.trim().length > 0 && !geminiResult.text.includes('extraction failed')) {
+          console.log('Gemini PDF extraction successful as fallback:', geminiResult.text.length, 'characters');
+          
+          return {
+            text: geminiResult.text,
+            metadata: {
+              title: file.name.split('.')[0],
+              pages: geminiResult.metadata.totalPages,
+              wordCount: this.countWords(geminiResult.text),
+              fileSize: this.formatFileSize(file.size),
+              lastModified: new Date(file.lastModified)
+            }
+          };
+        }
+      } catch (error) {
+        console.warn('AI PDF extraction also failed:', error);
+      }
     }
 
     // If both fail, return fallback content

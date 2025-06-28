@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
@@ -9,6 +8,7 @@ import { fileExtractor } from '../services/fileExtractor';
 import { toast } from '@/hooks/use-toast';
 import APIKeySetup from './APIKeySetup';
 import BookPreview from './BookPreview';
+import ExtractionMethodSelector from './ExtractionMethodSelector';
 
 interface UploadSectionProps {
   onProjectCreate: (project: TranslationProject) => void;
@@ -25,6 +25,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   const [extractedMetadata, setExtractedMetadata] = useState<any>(null);
   const [previewProject, setPreviewProject] = useState<TranslationProject | null>(null);
   const [extractionSuccess, setExtractionSuccess] = useState(false);
+  const [extractionMethod, setExtractionMethod] = useState<'ai' | 'traditional'>('ai');
   const [settings, setSettings] = useState<TranslationSettings>({
     preserveFormatting: true,
     chunkSize: 1000,
@@ -44,11 +45,20 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         setProjectName(file.name.split('.')[0]);
       }
 
-      // Extract content and metadata
+      // Extract content and metadata using selected method
       try {
         setIsProcessing(true);
-        console.log('Starting file extraction...');
-        const extracted = await fileExtractor.extractFromFile(file);
+        console.log(`Starting file extraction using ${extractionMethod} method...`);
+        
+        let extracted;
+        if (file.type === 'application/pdf') {
+          // For PDFs, use the selected extraction method
+          extracted = await fileExtractor.extractFromFile(file, extractionMethod);
+        } else {
+          // For other file types, use regular extraction
+          extracted = await fileExtractor.extractFromFile(file);
+        }
+        
         console.log('File extraction successful:', extracted.text.length, 'characters');
         
         setTextContent(extracted.text);
@@ -74,7 +84,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         
         toast({
           title: "File Processed Successfully",
-          description: `Extracted ${extracted.text.length.toLocaleString()} characters from ${file.name}`,
+          description: `Extracted ${extracted.text.length.toLocaleString()} characters from ${file.name} using ${extractionMethod} method`,
         });
       } catch (error) {
         console.error('File extraction error:', error);
@@ -88,7 +98,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         setIsProcessing(false);
       }
     }
-  }, [projectName, sourceLanguage, settings.chunkSize]);
+  }, [projectName, sourceLanguage, settings.chunkSize, extractionMethod]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -146,7 +156,12 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       if (uploadedFile && !content) {
         console.log('Extracting content from file for project creation...');
         try {
-          const extracted = await fileExtractor.extractFromFile(uploadedFile);
+          let extracted;
+          if (uploadedFile.type === 'application/pdf') {
+            extracted = await fileExtractor.extractFromFile(uploadedFile, extractionMethod);
+          } else {
+            extracted = await fileExtractor.extractFromFile(uploadedFile);
+          }
           content = extracted.text;
           metadata = extracted.metadata;
           fileType = getFileType(uploadedFile);
@@ -278,90 +293,101 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2 bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20"
+          className="lg:col-span-2 space-y-6"
         >
-          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-            <BookOpen className="w-6 h-6 text-purple-400" />
-            Content Input
-          </h3>
+          <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20">
+            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+              <BookOpen className="w-6 h-6 text-purple-400" />
+              Content Input
+            </h3>
 
-          {uploadMode === 'file' ? (
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
-                isDragActive
-                  ? 'border-purple-400 bg-purple-500/10'
-                  : 'border-white/30 hover:border-white/50 hover:bg-white/5'
-              }`}
-            >
-              <input {...getInputProps()} />
-              {isProcessing ? (
-                <div className="flex flex-col items-center">
-                  <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
-                  <p className="text-white font-medium">Processing file...</p>
-                </div>
-              ) : uploadedFile ? (
-                <div className="text-white">
-                  <div className="flex items-center justify-center mb-4">
-                    <FileText className="w-12 h-12 text-green-400 mr-2" />
-                    {extractionSuccess && <CheckCircle className="w-6 h-6 text-green-400" />}
+            {uploadMode === 'file' ? (
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
+                  isDragActive
+                    ? 'border-purple-400 bg-purple-500/10'
+                    : 'border-white/30 hover:border-white/50 hover:bg-white/5'
+                }`}
+              >
+                <input {...getInputProps()} />
+                {isProcessing ? (
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+                    <p className="text-white font-medium">Processing file...</p>
                   </div>
-                  <p className="font-medium">{uploadedFile.name}</p>
-                  <p className="text-sm text-white/60">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                  {extractedMetadata && (
-                    <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                      {extractedMetadata.wordCount && (
-                        <div className="bg-white/10 rounded-lg p-2">
-                          <div className="text-white/60">Words</div>
-                          <div className="font-medium">{extractedMetadata.wordCount.toLocaleString()}</div>
-                        </div>
-                      )}
-                      {extractedMetadata.pages && (
-                        <div className="bg-white/10 rounded-lg p-2">
-                          <div className="text-white/60">Pages</div>
-                          <div className="font-medium">{extractedMetadata.pages}</div>
-                        </div>
-                      )}
+                ) : uploadedFile ? (
+                  <div className="text-white">
+                    <div className="flex items-center justify-center mb-4">
+                      <FileText className="w-12 h-12 text-green-400 mr-2" />
+                      {extractionSuccess && <CheckCircle className="w-6 h-6 text-green-400" />}
                     </div>
-                  )}
-                  {extractionSuccess && (
-                    <div className="mt-4 flex items-center justify-center text-green-400 text-sm">
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Content extracted successfully
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-white/80">
-                  <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
-                  <p className="text-lg font-medium">Drop your document here</p>
-                  <p className="text-sm text-white/60 mt-2">
-                    Supports: PDF, DOCX, TXT, RTF, CSV, XLSX, HTML, XML, JSON, EPUB
-                  </p>
-                  <p className="text-xs text-white/40 mt-1">Max file size: 100MB</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <textarea
-              value={textContent}
-              onChange={(e) => setTextContent(e.target.value)}
-              placeholder="Paste or type your text here..."
-              className="w-full h-64 bg-white/5 border border-white/20 rounded-2xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-            />
-          )}
-
-          {/* Processing Status */}
-          {(textContent || uploadedFile) && (
-            <div className="mt-4 bg-blue-500/20 border border-blue-500/30 rounded-xl p-3">
-              <div className="flex items-center gap-2 text-blue-300 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>
-                  {textContent.length.toLocaleString()} characters • 
-                  {Math.ceil(textContent.length / settings.chunkSize)} chunks will be created
-                </span>
+                    <p className="font-medium">{uploadedFile.name}</p>
+                    <p className="text-sm text-white/60">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    {extractedMetadata && (
+                      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                        {extractedMetadata.wordCount && (
+                          <div className="bg-white/10 rounded-lg p-2">
+                            <div className="text-white/60">Words</div>
+                            <div className="font-medium">{extractedMetadata.wordCount.toLocaleString()}</div>
+                          </div>
+                        )}
+                        {extractedMetadata.pages && (
+                          <div className="bg-white/10 rounded-lg p-2">
+                            <div className="text-white/60">Pages</div>
+                            <div className="font-medium">{extractedMetadata.pages}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {extractionSuccess && (
+                      <div className="mt-4 flex items-center justify-center text-green-400 text-sm">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Content extracted successfully using {extractionMethod} method
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-white/80">
+                    <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
+                    <p className="text-lg font-medium">Drop your document here</p>
+                    <p className="text-sm text-white/60 mt-2">
+                      Supports: PDF, DOCX, TXT, RTF, CSV, XLSX, HTML, XML, JSON, EPUB
+                    </p>
+                    <p className="text-xs text-white/40 mt-1">Max file size: 100MB</p>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              <textarea
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+                placeholder="Paste or type your text here..."
+                className="w-full h-64 bg-white/5 border border-white/20 rounded-2xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              />
+            )}
+
+            {/* Processing Status */}
+            {(textContent || uploadedFile) && (
+              <div className="mt-4 bg-blue-500/20 border border-blue-500/30 rounded-xl p-3">
+                <div className="flex items-center gap-2 text-blue-300 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>
+                    {textContent.length.toLocaleString()} characters • 
+                    {Math.ceil(textContent.length / settings.chunkSize)} chunks will be created
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Extraction Method Selector - Only show for PDF files */}
+          {uploadedFile?.type === 'application/pdf' && (
+            <ExtractionMethodSelector
+              method={extractionMethod}
+              onMethodChange={setExtractionMethod}
+              disabled={isProcessing}
+            />
           )}
         </motion.div>
 
