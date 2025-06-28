@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 import TranslationHeader from '../components/TranslationHeader';
 import UploadSection from '../components/UploadSection';
 import TranslationProgress from '../components/TranslationProgress';
@@ -10,12 +12,16 @@ import ExportPanel from '../components/ExportPanel';
 import TranslationAnalytics from '../components/TranslationAnalytics';
 import TranslationQuality from '../components/TranslationQuality';
 import LiveTranslationViewer from '../components/LiveTranslationViewer';
+import WalletManager from '../components/wallet/WalletManager';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
+import { LogOut, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   console.log('Index component rendering...');
   
+  const { user, logout } = useAuth();
   const [currentProject, setCurrentProject] = useState<TranslationProject | null>(null);
   const [projects, setProjects] = useState<TranslationProject[]>([]);
   const [activeTab, setActiveTab] = useState('upload');
@@ -62,7 +68,8 @@ const Index = () => {
     { id: 'translate', label: 'Translate', icon: '🔄' },
     { id: 'live', label: 'Live View', icon: '👁️' },
     { id: 'analytics', label: 'Analytics', icon: '📊' },
-    { id: 'quality', label: 'Quality', icon: '⭐' }
+    { id: 'quality', label: 'Quality', icon: '⭐' },
+    { id: 'wallet', label: 'Wallet', icon: '💰' }
   ];
 
   if (error) {
@@ -80,12 +87,6 @@ const Index = () => {
             className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-2xl font-medium mr-4"
           >
             Try Again
-          </button>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-gradient-to-r from-gray-500 to-gray-600 text-white px-6 py-3 rounded-2xl font-medium"
-          >
-            Reload Page
           </button>
         </div>
       </div>
@@ -115,7 +116,38 @@ const Index = () => {
         </div>
 
         <div className="relative z-10">
-          <TranslationHeader />
+          {/* Header with user info */}
+          <div className="bg-black/20 backdrop-blur-md border-b border-white/10">
+            <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-white">TextWeaver Pro</h1>
+                <p className="text-white/60 text-sm">Welcome back, {user?.fullName || user?.email}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-white text-sm">Wallet Balance</p>
+                  <p className="text-white font-bold">${user?.walletBalance.toFixed(2) || '0.00'}</p>
+                </div>
+                {user?.isAdmin && (
+                  <Link to="/admin">
+                    <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10">
+                      <Settings className="w-4 h-4 mr-1" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
+                <Button 
+                  onClick={logout} 
+                  variant="outline" 
+                  size="sm"
+                  className="border-white/20 text-white hover:bg-white/10"
+                >
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Logout
+                </Button>
+              </div>
+            </div>
+          </div>
           
           <div className="container mx-auto px-4 py-8">
             {/* Navigation Tabs */}
@@ -262,6 +294,20 @@ const Index = () => {
                   >
                     Select Project
                   </motion.button>
+                </div>
+              )}
+
+              {activeTab === 'wallet' && (
+                <div>
+                  <div className="text-center mb-8">
+                    <h2 className="text-3xl font-bold text-white mb-4">💰 Wallet Management</h2>
+                    <p className="text-white/60 text-lg">
+                      Manage your translation credits
+                    </p>
+                  </div>
+                  <div className="max-w-md mx-auto">
+                    <WalletManager />
+                  </div>
                 </div>
               )}
             </motion.div>
