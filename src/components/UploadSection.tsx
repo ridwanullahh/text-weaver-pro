@@ -1,525 +1,367 @@
+
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, BookOpen, Settings, AlertCircle, CheckCircle } from 'lucide-react';
-import { TranslationProject, TranslationSettings } from '../types/translation';
-import { dbUtils } from '../utils/database';
-import { fileExtractor } from '../services/fileExtractor';
-import { toast } from '@/hooks/use-toast';
-import APIKeySetup from './APIKeySetup';
-import BookPreview from './BookPreview';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import ExtractionMethodSelector from './ExtractionMethodSelector';
+import { 
+  Upload, 
+  FileText, 
+  CheckCircle, 
+  AlertCircle,
+  X,
+  Eye,
+  Download,
+  Loader
+} from 'lucide-react';
+import { fileExtractor } from '../services/fileExtractor';
+import { translationDB } from '../utils/database';
+import { TranslationProject } from '../types/translation';
 
 interface UploadSectionProps {
   onProjectCreate: (project: TranslationProject) => void;
 }
 
+interface UploadedFile {
+  file: File;
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  progress: number;
+  extractedContent?: string;
+  metadata?: any;
+  error?: string;
+}
+
 const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
-  const [projectName, setProjectName] = useState('');
-  const [sourceLanguage, setSourceLanguage] = useState('auto');
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [textContent, setTextContent] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadMode, setUploadMode] = useState<'file' | 'text'>('file');
-  const [showApiSetup, setShowApiSetup] = useState(false);
-  const [extractedMetadata, setExtractedMetadata] = useState<any>(null);
-  const [previewProject, setPreviewProject] = useState<TranslationProject | null>(null);
-  const [extractionSuccess, setExtractionSuccess] = useState(false);
   const [extractionMethod, setExtractionMethod] = useState<'ai' | 'traditional'>('ai');
-  const [settings, setSettings] = useState<TranslationSettings>({
-    preserveFormatting: true,
-    chunkSize: 1000,
-    maxRetries: 3,
-    translationStyle: 'formal',
-    contextAware: true
-  });
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      console.log('File dropped:', file.name, file.type, file.size);
-      setUploadedFile(file);
-      setExtractionSuccess(false);
-      
-      if (!projectName) {
-        setProjectName(file.name.split('.')[0]);
-      }
-
-      // Extract content and metadata using selected method
-      try {
-        setIsProcessing(true);
-        console.log(`Starting file extraction using ${extractionMethod} method...`);
-        
-        let extracted;
-        if (file.type === 'application/pdf') {
-          // For PDFs, use the selected extraction method
-          extracted = await fileExtractor.extractFromFile(file, extractionMethod);
-        } else {
-          // For other file types, use regular extraction
-          extracted = await fileExtractor.extractFromFile(file);
-        }
-        
-        console.log('File extraction successful:', extracted.text.length, 'characters');
-        
-        setTextContent(extracted.text);
-        setExtractedMetadata(extracted.metadata);
-        setExtractionSuccess(true);
-        
-        // Create preview project
-        const preview: TranslationProject = {
-          name: extracted.metadata?.title || file.name.split('.')[0],
-          sourceLanguage,
-          targetLanguages: [],
-          originalContent: extracted.text,
-          fileType: getFileType(file),
-          totalChunks: Math.ceil(extracted.text.length / settings.chunkSize),
-          completedChunks: 0,
-          status: 'pending',
-          progress: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          settings
-        };
-        setPreviewProject(preview);
-        
-        toast({
-          title: "File Processed Successfully",
-          description: `Extracted ${extracted.text.length.toLocaleString()} characters from ${file.name} using ${extractionMethod} method`,
-        });
-      } catch (error) {
-        console.error('File extraction error:', error);
-        setExtractionSuccess(false);
-        toast({
-          title: "File Processing Warning",
-          description: error instanceof Error ? error.message : "File uploaded but content extraction had issues.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsProcessing(false);
-      }
-    }
-  }, [projectName, sourceLanguage, settings.chunkSize, extractionMethod]);
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const newFiles = acceptedFiles.map(file => ({
+      file,
+      id: crypto.randomUUID(),
+      status: 'pending' as const,
+      progress: 0
+    }));
+    
+    setUploadedFiles(prev => [...prev, ...newFiles]);
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'text/plain': ['.txt'],
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'text/plain': ['.txt'],
       'application/rtf': ['.rtf'],
       'text/csv': ['.csv'],
-      'text/html': ['.html', '.htm'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'text/html': ['.html'],
       'application/xml': ['.xml'],
-      'text/xml': ['.xml'],
       'application/json': ['.json'],
       'application/epub+zip': ['.epub']
     },
-    multiple: false,
-    maxSize: 100 * 1024 * 1024 // 100MB limit
+    maxSize: 50 * 1024 * 1024, // 50MB
+    multiple: true
   });
 
-  const getFileType = (file: File): 'text' | 'pdf' | 'docx' | 'epub' => {
-    if (file.type === 'application/pdf') return 'pdf';
-    if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
-    if (file.name.endsWith('.epub')) return 'epub';
-    return 'text';
+  const processFile = async (fileData: UploadedFile) => {
+    setUploadedFiles(prev => prev.map(f => 
+      f.id === fileData.id 
+        ? { ...f, status: 'processing', progress: 20 }
+        : f
+    ));
+
+    try {
+      // Simulate progress updates
+      const progressUpdates = [20, 40, 60, 80];
+      for (const progress of progressUpdates) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id ? { ...f, progress } : f
+        ));
+      }
+
+      console.log(`Processing file: ${fileData.file.name} with ${extractionMethod} method`);
+      
+      // Extract content using selected method
+      const extractedData = await fileExtractor.extractFromFile(fileData.file, extractionMethod);
+      
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === fileData.id 
+          ? { 
+              ...f, 
+              status: 'completed', 
+              progress: 100,
+              extractedContent: extractedData.text,
+              metadata: extractedData.metadata
+            }
+          : f
+      ));
+
+      return extractedData;
+    } catch (error) {
+      console.error('File processing error:', error);
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === fileData.id 
+          ? { 
+              ...f, 
+              status: 'error', 
+              progress: 0,
+              error: error instanceof Error ? error.message : 'Processing failed'
+            }
+          : f
+      ));
+      throw error;
+    }
   };
 
-  const handleCreateProject = async () => {
-    if (!projectName) {
-      toast({
-        title: "Missing Project Name",
-        description: "Please provide a project name.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!uploadedFile && !textContent) {
-      toast({
-        title: "Missing Content",
-        description: "Please upload a file or enter text content.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const processAllFiles = async () => {
     setIsProcessing(true);
+    const pendingFiles = uploadedFiles.filter(f => f.status === 'pending');
     
     try {
-      let content = textContent;
-      let fileType: 'text' | 'pdf' | 'docx' | 'epub' = 'text';
-      let metadata = extractedMetadata;
-
-      // If we have a file but no content, try to extract it
-      if (uploadedFile && !content) {
-        console.log('Extracting content from file for project creation...');
-        try {
-          let extracted;
-          if (uploadedFile.type === 'application/pdf') {
-            extracted = await fileExtractor.extractFromFile(uploadedFile, extractionMethod);
-          } else {
-            extracted = await fileExtractor.extractFromFile(uploadedFile);
-          }
-          content = extracted.text;
-          metadata = extracted.metadata;
-          fileType = getFileType(uploadedFile);
-        } catch (error) {
-          console.error('Content extraction failed, using fallback:', error);
-          // Use fallback content
-          content = `File "${uploadedFile.name}" uploaded successfully. Content will be processed for translation.`;
-          fileType = getFileType(uploadedFile);
-        }
+      for (const fileData of pendingFiles) {
+        await processFile(fileData);
       }
-
-      // Ensure we have some content
-      if (!content || content.trim().length === 0) {
-        throw new Error('No content available for translation');
-      }
-
-      const totalChunks = Math.ceil(content.length / settings.chunkSize);
-
-      const projectData = {
-        name: metadata?.title || projectName,
-        sourceLanguage,
-        targetLanguages: [],
-        originalContent: content,
-        fileType,
-        totalChunks,
-        completedChunks: 0,
-        status: 'pending' as const,
-        progress: 0,
-        settings
-      };
-
-      console.log('Creating project with data:', projectData);
-      const project = await dbUtils.createProject(projectData);
-      console.log('Project created successfully:', project);
       
-      toast({
-        title: "Project Created Successfully",
-        description: `${projectData.name} is ready for translation!`,
-      });
-
-      // Reset form
-      setProjectName('');
-      setUploadedFile(null);
-      setTextContent('');
-      setExtractedMetadata(null);
-      setPreviewProject(null);
-      setExtractionSuccess(false);
-
-      onProjectCreate(project);
+      // Create project from completed files
+      const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
+      if (completedFiles.length > 0) {
+        await createProject(completedFiles);
+      }
     } catch (error) {
-      console.error('Error creating project:', error);
-      toast({
-        title: "Failed to Create Project",
-        description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
+      console.error('Error processing files:', error);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const createProject = async (completedFiles: UploadedFile[]) => {
+    try {
+      const combinedContent = completedFiles
+        .map(f => f.extractedContent)
+        .filter(Boolean)
+        .join('\n\n---\n\n');
+
+      const totalWords = combinedContent.split(/\s+/).filter(word => word.length > 0).length;
+      
+      const project: TranslationProject = {
+        id: crypto.randomUUID(),
+        name: completedFiles.length === 1 
+          ? completedFiles[0].file.name.split('.')[0]
+          : `Multi-file Project (${completedFiles.length} files)`,
+        sourceLanguage: 'auto',
+        targetLanguages: [],
+        originalContent: combinedContent,
+        extractedChunks: [{
+          id: crypto.randomUUID(),
+          content: combinedContent,
+          metadata: {
+            source: 'file_upload',
+            wordCount: totalWords,
+            files: completedFiles.map(f => ({
+              name: f.file.name,
+              size: f.file.size,
+              type: f.file.type,
+              metadata: f.metadata
+            }))
+          }
+        }],
+        status: 'ready',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        progress: {
+          chunksProcessed: 0,
+          totalChunks: 1,
+          percentage: 0
+        }
+      };
+
+      await translationDB.projects.add(project);
+      onProjectCreate(project);
+      
+      // Clear uploaded files after project creation
+      setUploadedFiles([]);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      throw error;
+    }
+  };
+
+  const removeFile = (fileId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  const retryFile = async (fileId: string) => {
+    const fileData = uploadedFiles.find(f => f.id === fileId);
+    if (fileData) {
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: 'pending', progress: 0, error: undefined }
+          : f
+      ));
+      
+      try {
+        await processFile(fileData);
+      } catch (error) {
+        console.error('Retry failed:', error);
+      }
+    }
+  };
+
+  const getStatusColor = (status: UploadedFile['status']) => {
+    switch (status) {
+      case 'completed': return 'text-green-400';
+      case 'processing': return 'text-blue-400';
+      case 'error': return 'text-red-400';
+      default: return 'text-yellow-400';
+    }
+  };
+
+  const getStatusIcon = (status: UploadedFile['status']) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="w-5 h-5 text-green-400" />;
+      case 'processing': return <Loader className="w-5 h-5 text-blue-400 animate-spin" />;
+      case 'error': return <AlertCircle className="w-5 h-5 text-red-400" />;
+      default: return <FileText className="w-5 h-5 text-yellow-400" />;
+    }
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* API Key Setup */}
-      <div className="text-center mb-8">
-        <motion.button
-          onClick={() => setShowApiSetup(!showApiSetup)}
-          className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 text-white px-6 py-3 rounded-2xl font-medium hover:bg-purple-500/30 transition-all duration-300 flex items-center gap-2 mx-auto"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <Settings className="w-5 h-5" />
-          {showApiSetup ? 'Hide' : 'Setup'} Gemini API Key
-        </motion.button>
+    <div className="space-y-8">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-white mb-4">📤 Upload Documents</h2>
+        <p className="text-white/60 text-lg">
+          Upload your documents and select your preferred extraction method
+        </p>
       </div>
 
-      {showApiSetup && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          className="overflow-hidden"
-        >
-          <APIKeySetup />
-        </motion.div>
-      )}
+      {/* Extraction Method Selector */}
+      <ExtractionMethodSelector 
+        method={extractionMethod}
+        onMethodChange={setExtractionMethod}
+        disabled={uploadedFiles.some(f => f.status === 'processing')}
+      />
 
-      {/* Book Preview */}
-      {previewProject && extractedMetadata && (
-        <BookPreview project={previewProject} metadata={extractedMetadata} />
-      )}
-
-      {/* Upload Mode Toggle */}
-      <div className="flex justify-center">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2 border border-white/20">
-          <div className="flex space-x-2">
-            <motion.button
-              onClick={() => setUploadMode('file')}
-              className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
-                uploadMode === 'file'
-                  ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
+      {/* Upload Area */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+          <CardContent className="p-8">
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 ${
+                isDragActive
+                  ? 'border-purple-400 bg-purple-400/10'
+                  : 'border-white/30 hover:border-purple-400/50 hover:bg-white/5'
               }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
             >
-              <Upload className="w-4 h-4" />
-              Upload File
-            </motion.button>
-            <motion.button
-              onClick={() => setUploadMode('text')}
-              className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
-                uploadMode === 'text'
-                  ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <FileText className="w-4 h-4" />
-              Enter Text
-            </motion.button>
-          </div>
-        </div>
-      </div>
+              <input {...getInputProps()} />
+              <Upload className="w-16 h-16 text-white/60 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">
+                {isDragActive ? 'Drop files here' : 'Drag & drop files or click to browse'}
+              </h3>
+              <p className="text-white/60 mb-4">
+                Supports PDF, DOCX, TXT, RTF, CSV, XLSX, HTML, XML, JSON, EPUB
+              </p>
+              <p className="text-white/40 text-sm">
+                Maximum file size: 50MB per file
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Content Input */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2 space-y-6"
-        >
-          <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20">
-            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-              <BookOpen className="w-6 h-6 text-purple-400" />
-              Content Input
-            </h3>
-
-            {uploadMode === 'file' ? (
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
-                  isDragActive
-                    ? 'border-purple-400 bg-purple-500/10'
-                    : 'border-white/30 hover:border-white/50 hover:bg-white/5'
-                }`}
-              >
-                <input {...getInputProps()} />
-                {isProcessing ? (
-                  <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
-                    <p className="text-white font-medium">Processing file...</p>
-                  </div>
-                ) : uploadedFile ? (
-                  <div className="text-white">
-                    <div className="flex items-center justify-center mb-4">
-                      <FileText className="w-12 h-12 text-green-400 mr-2" />
-                      {extractionSuccess && <CheckCircle className="w-6 h-6 text-green-400" />}
-                    </div>
-                    <p className="font-medium">{uploadedFile.name}</p>
-                    <p className="text-sm text-white/60">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                    {extractedMetadata && (
-                      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                        {extractedMetadata.wordCount && (
-                          <div className="bg-white/10 rounded-lg p-2">
-                            <div className="text-white/60">Words</div>
-                            <div className="font-medium">{extractedMetadata.wordCount.toLocaleString()}</div>
-                          </div>
-                        )}
-                        {extractedMetadata.pages && (
-                          <div className="bg-white/10 rounded-lg p-2">
-                            <div className="text-white/60">Pages</div>
-                            <div className="font-medium">{extractedMetadata.pages}</div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {extractionSuccess && (
-                      <div className="mt-4 flex items-center justify-center text-green-400 text-sm">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Content extracted successfully using {extractionMethod} method
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-white/80">
-                    <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
-                    <p className="text-lg font-medium">Drop your document here</p>
-                    <p className="text-sm text-white/60 mt-2">
-                      Supports: PDF, DOCX, TXT, RTF, CSV, XLSX, HTML, XML, JSON, EPUB
-                    </p>
-                    <p className="text-xs text-white/40 mt-1">Max file size: 100MB</p>
-                  </div>
+      {/* Uploaded Files List */}
+      {uploadedFiles.length > 0 && (
+        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center justify-between">
+              Uploaded Files ({uploadedFiles.length})
+              <div className="flex gap-2">
+                {uploadedFiles.some(f => f.status === 'pending') && (
+                  <Button 
+                    onClick={processAllFiles}
+                    disabled={isProcessing}
+                    className="bg-gradient-to-r from-purple-500 to-blue-500"
+                  >
+                    {isProcessing ? 'Processing...' : 'Process All Files'}
+                  </Button>
                 )}
               </div>
-            ) : (
-              <textarea
-                value={textContent}
-                onChange={(e) => setTextContent(e.target.value)}
-                placeholder="Paste or type your text here..."
-                className="w-full h-64 bg-white/5 border border-white/20 rounded-2xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-              />
-            )}
-
-            {/* Processing Status */}
-            {(textContent || uploadedFile) && (
-              <div className="mt-4 bg-blue-500/20 border border-blue-500/30 rounded-xl p-3">
-                <div className="flex items-center gap-2 text-blue-300 text-sm">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>
-                    {textContent.length.toLocaleString()} characters • 
-                    {Math.ceil(textContent.length / settings.chunkSize)} chunks will be created
-                  </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {uploadedFiles.map((fileData) => (
+                <div key={fileData.id} className="bg-white/5 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      {getStatusIcon(fileData.status)}
+                      <div>
+                        <p className="text-white font-medium">{fileData.file.name}</p>
+                        <p className="text-white/60 text-sm">
+                          {(fileData.file.size / 1024 / 1024).toFixed(1)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={`border-white/20 ${getStatusColor(fileData.status)}`}>
+                        {fileData.status}
+                      </Badge>
+                      {fileData.status === 'error' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => retryFile(fileData.id)}
+                          className="border-white/20 text-white hover:bg-white/10"
+                        >
+                          Retry
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeFile(fileData.id)}
+                        className="border-white/20 text-white hover:bg-white/10"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {fileData.status === 'processing' && (
+                    <Progress value={fileData.progress} className="mb-2" />
+                  )}
+                  
+                  {fileData.error && (
+                    <p className="text-red-400 text-sm mb-2">{fileData.error}</p>
+                  )}
+                  
+                  {fileData.extractedContent && (
+                    <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                      <p className="text-white/80 text-sm mb-2">
+                        Content Preview ({fileData.metadata?.wordCount || 0} words):
+                      </p>
+                      <p className="text-white/60 text-sm line-clamp-3">
+                        {fileData.extractedContent.substring(0, 200)}...
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* Extraction Method Selector - Only show for PDF files */}
-          {uploadedFile?.type === 'application/pdf' && (
-            <ExtractionMethodSelector
-              method={extractionMethod}
-              onMethodChange={setExtractionMethod}
-              disabled={isProcessing}
-            />
-          )}
-        </motion.div>
-
-        {/* Project Settings */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20"
-        >
-          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-            <Settings className="w-6 h-6 text-blue-400" />
-            Project Settings
-          </h3>
-
-          <div className="space-y-6">
-            <div>
-              <label className="block text-white/80 font-medium mb-2">Project Name</label>
-              <input
-                type="text"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="Enter project name..."
-                className="w-full bg-white/5 border border-white/20 rounded-xl p-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+              ))}
             </div>
-
-            <div>
-              <label className="block text-white/80 font-medium mb-2">Source Language</label>
-              <select
-                value={sourceLanguage}
-                onChange={(e) => setSourceLanguage(e.target.value)}
-                className="w-full bg-white/5 border border-white/20 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="auto">Auto Detect</option>
-                <option value="en">English</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-                <option value="zh">Chinese</option>
-                <option value="ja">Japanese</option>
-                <option value="ar">Arabic</option>
-                <option value="pt">Portuguese</option>
-                <option value="ru">Russian</option>
-                <option value="it">Italian</option>
-                <option value="ko">Korean</option>
-                <option value="hi">Hindi</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-white/80 font-medium mb-2">Translation Style</label>
-              <select
-                value={settings.translationStyle}
-                onChange={(e) => setSettings(prev => ({ ...prev, translationStyle: e.target.value as any }))}
-                className="w-full bg-white/5 border border-white/20 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="formal">Formal & Professional</option>
-                <option value="casual">Casual & Conversational</option>
-                <option value="literary">Literary & Artistic</option>
-                <option value="technical">Technical & Precise</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-white/80 font-medium mb-2">Chunk Size</label>
-              <select
-                value={settings.chunkSize}
-                onChange={(e) => setSettings(prev => ({ ...prev, chunkSize: Number(e.target.value) }))}
-                className="w-full bg-white/5 border border-white/20 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value={500}>Small (500 chars) - More accurate</option>
-                <option value={1000}>Medium (1000 chars) - Balanced</option>
-                <option value={2000}>Large (2000 chars) - Faster</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 font-medium">Preserve Formatting</span>
-              <motion.button
-                onClick={() => setSettings(prev => ({ ...prev, preserveFormatting: !prev.preserveFormatting }))}
-                className={`w-12 h-6 rounded-full transition-all duration-300 ${
-                  settings.preserveFormatting ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-white/20'
-                }`}
-                whileTap={{ scale: 0.95 }}
-              >
-                <motion.div
-                  className="w-5 h-5 bg-white rounded-full shadow-md"
-                  animate={{ x: settings.preserveFormatting ? 24 : 2 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              </motion.button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 font-medium">Context Aware</span>
-              <motion.button
-                onClick={() => setSettings(prev => ({ ...prev, contextAware: !prev.contextAware }))}
-                className={`w-12 h-6 rounded-full transition-all duration-300 ${
-                  settings.contextAware ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-white/20'
-                }`}
-                whileTap={{ scale: 0.95 }}
-              >
-                <motion.div
-                  className="w-5 h-5 bg-white rounded-full shadow-md"
-                  animate={{ x: settings.contextAware ? 24 : 2 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Create Project Button */}
-      <div className="text-center">
-        <motion.button
-          onClick={handleCreateProject}
-          disabled={isProcessing || (!uploadedFile && !textContent) || !projectName}
-          className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-12 py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          whileHover={!isProcessing ? { scale: 1.05 } : {}}
-          whileTap={!isProcessing ? { scale: 0.95 } : {}}
-        >
-          {isProcessing ? (
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Creating Project...
-            </div>
-          ) : (
-            'Create Translation Project'
-          )}
-        </motion.button>
-      </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

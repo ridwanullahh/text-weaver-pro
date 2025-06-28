@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { sdk } from '@/services/sdkService';
+import { wrappedSDK } from '@/services/sdkService';
 
 interface User {
   id: string;
@@ -10,6 +10,7 @@ interface User {
   isAdmin: boolean;
   dailyTextTranslations: number;
   lastResetDate: string;
+  roles?: string[];
 }
 
 interface AuthContextType {
@@ -33,28 +34,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (token) {
-      const userData = sdk.getCurrentUser(token);
-      if (userData) {
-        setUser({
-          id: userData.id || userData.uid || '',
-          email: userData.email,
-          fullName: userData.fullName,
-          walletBalance: userData.walletBalance || 0,
-          isAdmin: userData.roles?.includes('admin') || false,
-          dailyTextTranslations: userData.dailyTextTranslations || 0,
-          lastResetDate: userData.lastResetDate || new Date().toDateString()
-        });
-      }
-    }
-    setIsLoading(false);
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    try {
-      const result = await sdk.login(email, password);
-      if (typeof result === 'string') {
-        localStorage.setItem('auth_token', result);
-        const userData = sdk.getCurrentUser(result);
+      try {
+        const userData = wrappedSDK.getCurrentUser(token);
         if (userData) {
           setUser({
             id: userData.id || userData.uid || '',
@@ -63,9 +44,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             walletBalance: userData.walletBalance || 0,
             isAdmin: userData.roles?.includes('admin') || false,
             dailyTextTranslations: userData.dailyTextTranslations || 0,
-            lastResetDate: userData.lastResetDate || new Date().toDateString()
+            lastResetDate: userData.lastResetDate || new Date().toDateString(),
+            roles: userData.roles || []
           });
         }
+      } catch (error) {
+        console.error('Failed to load user:', error);
+        localStorage.removeItem('auth_token');
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const token = await wrappedSDK.login(email, password);
+      localStorage.setItem('auth_token', token);
+      
+      const userData = wrappedSDK.getCurrentUser(token);
+      if (userData) {
+        const userObj = {
+          id: userData.id || userData.uid || '',
+          email: userData.email,
+          fullName: userData.fullName,
+          walletBalance: userData.walletBalance || 0,
+          isAdmin: userData.roles?.includes('admin') || false,
+          dailyTextTranslations: userData.dailyTextTranslations || 0,
+          lastResetDate: userData.lastResetDate || new Date().toDateString(),
+          roles: userData.roles || []
+        };
+        setUser(userObj);
       }
     } catch (error) {
       throw error;
@@ -74,40 +82,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (email: string, password: string, profile: any) => {
     try {
-      // Validate invite code
-      const inviteCodes = await sdk.get('invite_codes');
-      const validCode = inviteCodes.find((code: any) => 
-        code.code === profile.inviteCode && !code.used
-      );
+      const newUser = await wrappedSDK.register(email, password, profile);
+      const token = await wrappedSDK.login(email, password);
       
-      if (!validCode) {
-        throw new Error('Invalid invitation code');
-      }
-
-      const newUser = await sdk.register(email, password, {
-        ...profile,
+      localStorage.setItem('auth_token', token);
+      setUser({
+        id: newUser.id || newUser.uid || '',
+        email: newUser.email,
+        fullName: newUser.fullName,
         walletBalance: 0,
-        roles: ['user'],
+        isAdmin: false,
         dailyTextTranslations: 0,
-        lastResetDate: new Date().toDateString()
+        lastResetDate: new Date().toDateString(),
+        roles: newUser.roles || []
       });
-
-      // Mark invite code as used
-      await sdk.update('invite_codes', validCode.id, { used: true, usedBy: newUser.email });
-
-      const token = await sdk.login(email, password);
-      if (typeof token === 'string') {
-        localStorage.setItem('auth_token', token);
-        setUser({
-          id: newUser.id || newUser.uid || '',
-          email: newUser.email,
-          fullName: newUser.fullName,
-          walletBalance: 0,
-          isAdmin: false,
-          dailyTextTranslations: 0,
-          lastResetDate: new Date().toDateString()
-        });
-      }
     } catch (error) {
       throw error;
     }
@@ -115,17 +103,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('current_user');
     setUser(null);
   };
 
   const updateWallet = async (amount: number) => {
     if (!user) return;
     
-    const updatedUser = await sdk.update('users', user.id, {
-      walletBalance: user.walletBalance + amount
-    });
-    
-    setUser(prev => prev ? { ...prev, walletBalance: updatedUser.walletBalance } : null);
+    try {
+      const updatedUser = await wrappedSDK.update('users', user.id, {
+        walletBalance: user.walletBalance + amount
+      });
+      
+      // Record transaction
+      await wrappedSDK.insert('transactions', {
+        userId: user.id,
+        amount: amount,
+        type: amount > 0 ? 'deposit' : 'withdrawal',
+        description: amount > 0 ? 'Wallet funded' : 'Service charge',
+        createdAt: new Date().toISOString()
+      });
+      
+      setUser(prev => prev ? { ...prev, walletBalance: updatedUser.walletBalance } : null);
+    } catch (error) {
+      console.error('Failed to update wallet:', error);
+      throw error;
+    }
   };
 
   const canTranslateText = () => {
@@ -133,8 +136,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const today = new Date().toDateString();
     if (user.lastResetDate !== today) {
-      // Reset daily count
-      return true;
+      return true; // Reset daily count
     }
     
     return user.dailyTextTranslations < 3;
@@ -152,16 +154,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       newCount += 1;
     }
     
-    const updatedUser = await sdk.update('users', user.id, {
-      dailyTextTranslations: newCount,
-      lastResetDate: today
-    });
-    
-    setUser(prev => prev ? {
-      ...prev,
-      dailyTextTranslations: updatedUser.dailyTextTranslations,
-      lastResetDate: updatedUser.lastResetDate
-    } : null);
+    try {
+      const updatedUser = await wrappedSDK.update('users', user.id, {
+        dailyTextTranslations: newCount,
+        lastResetDate: today
+      });
+      
+      setUser(prev => prev ? {
+        ...prev,
+        dailyTextTranslations: updatedUser.dailyTextTranslations,
+        lastResetDate: updatedUser.lastResetDate
+      } : null);
+    } catch (error) {
+      console.error('Failed to update daily translations:', error);
+    }
   };
 
   return (
