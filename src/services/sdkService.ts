@@ -29,9 +29,13 @@ const sdkConfig: UniversalSDKConfig = {
       types: {
         email: 'string',
         password: 'string',
+        fullName: 'string',
         verified: 'boolean',
         roles: 'array',
-        permissions: 'array'
+        permissions: 'array',
+        walletBalance: 'number',
+        dailyTextTranslations: 'number',
+        lastResetDate: 'string'
       }
     },
     projects: {
@@ -42,6 +46,42 @@ const sdkConfig: UniversalSDKConfig = {
         targetLanguages: 'array',
         originalContent: 'string',
         status: 'string'
+      }
+    },
+    invite_codes: {
+      required: ['code'],
+      types: {
+        code: 'string',
+        used: 'boolean',
+        createdBy: 'string',
+        createdFor: 'string',
+        usedBy: 'string',
+        createdAt: 'string'
+      }
+    },
+    invite_requests: {
+      required: ['email', 'fullName'],
+      types: {
+        email: 'string',
+        fullName: 'string',
+        company: 'string',
+        useCase: 'string',
+        expectedVolume: 'string',
+        status: 'string',
+        requestedAt: 'string',
+        approvedBy: 'string',
+        approvedAt: 'string',
+        inviteCode: 'string'
+      }
+    },
+    transactions: {
+      required: ['userId', 'amount', 'type'],
+      types: {
+        userId: 'string',
+        amount: 'number',
+        type: 'string',
+        description: 'string',
+        createdAt: 'string'
       }
     }
   }
