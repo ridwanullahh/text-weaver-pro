@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -40,7 +41,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
   
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 function App() {
@@ -51,11 +52,15 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/login" element={<Auth />} />
+            <Route path="/auth" element={<Navigate to="/login" replace />} />
+            <Route path="/register" element={<Auth />} />
+            <Route path="/signup" element={<Auth />} />
             <Route path="/features" element={<Features />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogSingle />} />
+            <Route path="/docs" element={<Documentation />} />
             <Route path="/documentation" element={<Documentation />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/terms" element={<Terms />} />
@@ -65,6 +70,14 @@ function App() {
             {/* Protected Routes */}
             <Route 
               path="/app" 
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/dashboard" 
               element={
                 <ProtectedRoute>
                   <Index />

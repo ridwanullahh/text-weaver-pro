@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, User, Search, ArrowRight } from 'lucide-react';
 import { sdk } from '@/services/sdkService';
+import PageLayout from '@/components/shared/PageLayout';
 
 interface BlogPost {
   id: string;
@@ -54,29 +55,19 @@ const Blog = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin text-6xl mb-4">📖</div>
-          <h2 className="text-2xl font-bold text-white">Loading Blog Posts...</h2>
+      <PageLayout showFooter={false}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin text-6xl mb-4">📖</div>
+            <h2 className="text-2xl font-bold text-white">Loading Blog Posts...</h2>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900">
-      {/* Navigation */}
-      <nav className="bg-black/20 backdrop-blur-md border-b border-white/10">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link to="/" className="text-2xl font-bold text-white">TextWeaver Pro</Link>
-          <div className="flex items-center space-x-4">
-            <Link to="/" className="text-white/70 hover:text-white">Home</Link>
-            <Link to="/docs" className="text-white/70 hover:text-white">Docs</Link>
-            <Link to="/contact" className="text-white/70 hover:text-white">Contact</Link>
-          </div>
-        </div>
-      </nav>
-
+    <PageLayout>
       <div className="container mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-12">
@@ -218,7 +209,7 @@ const Blog = () => {
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 };
 
