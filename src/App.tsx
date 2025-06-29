@@ -1,37 +1,29 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import { Toaster } from '@/components/ui/toaster';
+import { initializeSDK } from './services/sdkService';
+import Landing from './pages/Landing';
+import Auth from './pages/Auth';
+import Index from './pages/Index';
+import Admin from './pages/Admin';
+import Features from './pages/Features';
+import Pricing from './pages/Pricing';
+import Blog from './pages/Blog';
+import BlogSingle from './pages/BlogSingle';
+import Documentation from './pages/Documentation';
+import Contact from './pages/Contact';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import RequestInvite from './pages/RequestInvite';
+import NotFound from './pages/NotFound';
+import './App.css';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { initializeSDK } from "@/services/sdkService";
-import { useEffect, useState } from "react";
-
-// Pages
-import Landing from "./pages/Landing";
-import Auth from "./pages/Auth";
-import RequestInvite from "./pages/RequestInvite";
-import Index from "./pages/Index";
-import Admin from "./pages/Admin";
-import Blog from "./pages/Blog";
-import BlogSingle from "./pages/BlogSingle";
-import Contact from "./pages/Contact";
-import Features from "./pages/Features";
-import Pricing from "./pages/Pricing";
-import Terms from "./pages/Terms";
-import Privacy from "./pages/Privacy";
-import Documentation from "./pages/Documentation";
-import NotFound from "./pages/NotFound";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 5 * 60 * 1000,
-      refetchOnWindowFocus: false,
-    },
-  },
+// Initialize SDK
+initializeSDK().then(() => {
+  console.log('SDK initialized successfully');
+}).catch(error => {
+  console.error('SDK initialization failed:', error);
 });
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -42,118 +34,62 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin text-6xl mb-4">⚙️</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Loading...</h2>
+          <h2 className="text-2xl font-bold text-white">Loading...</h2>
         </div>
       </div>
     );
   }
   
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
 };
 
-const AppContent = () => {
-  const [sdkReady, setSdkReady] = useState(false);
-  const [initError, setInitError] = useState<string | null>(null);
-
-  useEffect(() => {
-    initializeSDK()
-      .then(() => {
-        setSdkReady(true);
-        console.log('SDK initialized successfully');
-      })
-      .catch(error => {
-        console.error('Failed to initialize SDK:', error);
-        setInitError('Failed to initialize application. Using demo mode.');
-        setSdkReady(true); // Allow app to continue with demo data
-      });
-  }, []);
-
-  if (!sdkReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin text-6xl mb-4">⚙️</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Initializing TextWeaver Pro</h2>
-          <p className="text-white/60">Setting up your translation workspace...</p>
-          {initError && (
-            <p className="text-orange-400 text-sm mt-4 max-w-md mx-auto">{initError}</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
+function App() {
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Auth />} />
-      <Route path="/register" element={<Auth />} />
-      <Route path="/request-invite" element={<RequestInvite />} />
-      <Route path="/features" element={<Features />} />
-      <Route path="/pricing" element={<Pricing />} />
-      <Route path="/blog" element={<Blog />} />
-      <Route path="/blog/:slug" element={<BlogSingle />} />
-      <Route path="/contact" element={<Contact />} />
-      <Route path="/terms" element={<Terms />} />
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/docs" element={<Documentation />} />
-      <Route path="/docs/:slug" element={<Documentation />} />
-      
-      {/* Protected Routes */}
-      <Route path="/app" element={
-        <ProtectedRoute>
-          <Index />
-        </ProtectedRoute>
-      } />
-      <Route path="/admin/*" element={
-        <ProtectedRoute>
-          <Admin />
-        </ProtectedRoute>
-      } />
-      
-      {/* Fallback */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-};
-
-const App = () => {
-  console.log('App component rendering...');
-  
-  try {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogSingle />} />
+            <Route path="/documentation" element={<Documentation />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/request-invite" element={<RequestInvite />} />
+            
+            {/* Protected Routes */}
+            <Route 
+              path="/app" 
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* 404 Route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          
+          {/* Toast Notifications */}
           <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-  } catch (error) {
-    console.error('App component error:', error);
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh', 
-        background: '#1a1a1a', 
-        color: 'white',
-        fontFamily: 'system-ui'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <h1>App Error</h1>
-          <p>Something went wrong in the app component.</p>
         </div>
-      </div>
-    );
-  }
-};
+      </Router>
+    </AuthProvider>
+  );
+}
 
 export default App;
