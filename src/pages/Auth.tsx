@@ -6,7 +6,7 @@ import RegisterForm from '@/components/auth/RegisterForm';
 import PasswordResetForm from '@/components/auth/PasswordResetForm';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { wrappedSDK } from '@/services/sdkService';
+import { initializeSDK } from '@/services/sdkService';
 import { useToast } from '@/hooks/use-toast';
 import PageLayout from '@/components/shared/PageLayout';
 
@@ -21,83 +21,22 @@ const Auth = () => {
       setIsSeeding(true);
       
       toast({
-        title: "Seeding Demo Data",
-        description: "Creating demo users and initial data...",
+        title: "Initializing Database",
+        description: "Setting up demo data and validating GitHub connection...",
       });
       
-      // Create demo users with properly hashed passwords
-      const demoUsers = [
-        {
-          id: '1',
-          uid: 'demo-user-1',
-          email: 'demo@textweaverpro.com',
-          password: wrappedSDK.hashPassword('demo123'),
-          fullName: 'Demo User',
-          verified: true,
-          roles: ['user'],
-          permissions: [],
-          walletBalance: 50,
-          dailyTextTranslations: 0,
-          lastResetDate: new Date().toDateString(),
-          isActive: true
-        },
-        {
-          id: '2',
-          uid: 'admin-user-1',
-          email: 'admin@textweaverpro.com',
-          password: wrappedSDK.hashPassword('admin123'),
-          fullName: 'Admin User',
-          verified: true,
-          roles: ['admin', 'user'],
-          permissions: ['manage_users', 'manage_content'],
-          walletBalance: 100,
-          dailyTextTranslations: 0,
-          lastResetDate: new Date().toDateString(),
-          isActive: true
-        }
-      ];
-
-      // Try to insert users
-      for (const user of demoUsers) {
-        try {
-          await wrappedSDK.insert('users', user);
-        } catch (error) {
-          console.log('User already exists or error inserting:', error);
-        }
-      }
-
-      // Seed invite codes
-      const inviteCodes = [
-        {
-          id: '1',
-          uid: 'invite-1',
-          code: 'WELCOME2024',
-          used: false,
-          createdBy: 'system',
-          createdFor: 'public',
-          usedBy: '',
-          createdAt: new Date().toISOString()
-        }
-      ];
-
-      for (const code of inviteCodes) {
-        try {
-          await wrappedSDK.insert('invite_codes', code);
-        } catch (error) {
-          console.log('Invite code already exists or error inserting:', error);
-        }
-      }
-
+      await initializeSDK();
+      
       toast({
-        title: "Demo Data Seeded Successfully! 🎉",
-        description: "Demo users created. You can now login with the provided credentials.",
+        title: "Database Initialized Successfully! 🎉",
+        description: "Demo users created and GitHub database is ready.",
       });
 
     } catch (error) {
-      console.error('Failed to seed demo data:', error);
+      console.error('Failed to initialize database:', error);
       toast({
-        title: "Seeding Failed",
-        description: "Failed to create demo data. Please check console for details.",
+        title: "Database Initialization Failed",
+        description: error instanceof Error ? error.message : "Please check your GitHub configuration.",
         variant: "destructive"
       });
     } finally {
@@ -135,20 +74,21 @@ const Auth = () => {
             <p className="text-white/60">Professional Document Translation</p>
           </div>
 
-          {/* Demo Seed Button */}
+          {/* Database Initialize Button */}
           <div className="mb-6 text-center">
             <Button
               onClick={seedDemoData}
               disabled={isSeeding}
-              className="bg-orange-500 hover:bg-orange-600 text-white mb-4 w-full"
+              className="bg-green-600 hover:bg-green-700 text-white mb-4 w-full"
             >
-              {isSeeding ? 'Seeding Demo Data...' : '🌱 Seed Demo Data'}
+              {isSeeding ? 'Initializing Database...' : '🚀 Initialize Database'}
             </Button>
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-3 text-sm">
               <p className="text-white/90 font-medium mb-2">Demo Credentials:</p>
               <p className="text-white/70 text-xs">
                 📧 <strong>User:</strong> demo@textweaverpro.com / demo123<br/>
-                👑 <strong>Admin:</strong> admin@textweaverpro.com / admin123
+                👑 <strong>Admin:</strong> admin@textweaverpro.com / admin123<br/>
+                🎫 <strong>Invite Code:</strong> WELCOME2024
               </p>
             </div>
           </div>
