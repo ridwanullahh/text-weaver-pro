@@ -12,9 +12,9 @@ const hasValidCredentials = () => {
 
 // SDK Configuration with proper environment variables
 const sdkConfig = {
-  owner: import.meta.env.VITE_GITHUB_OWNER || 'demo',
-  repo: import.meta.env.VITE_GITHUB_REPO || 'textweaver-data',
-  token: import.meta.env.VITE_GITHUB_TOKEN || 'demo-token',
+  owner: import.meta.env.VITE_GITHUB_OWNER || 'ridwanullahh',
+  repo: import.meta.env.VITE_GITHUB_REPO || 'bettertranslatordb',
+  token: import.meta.env.VITE_GITHUB_TOKEN || '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',
   branch: import.meta.env.VITE_GITHUB_BRANCH || 'main',
   basePath: 'db',
   cloudinary: {
