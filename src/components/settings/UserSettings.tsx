@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -68,11 +67,11 @@ const UserSettings = () => {
     }
   };
 
-  const updateSetting = (section: string, key: string, value: any) => {
+  const updateSetting = (section: 'notifications' | 'preferences', key: string, value: any) => {
     setSettings(prev => ({
       ...prev,
       [section]: {
-        ...prev[section as keyof typeof prev],
+        ...(prev[section] as object),
         [key]: value
       }
     }));
