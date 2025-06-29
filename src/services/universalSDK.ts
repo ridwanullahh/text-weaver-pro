@@ -192,7 +192,7 @@ class UniversalSDK {
       ...item,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    } as T & { id: string; uid: string };
+    } as unknown as T & { id: string; uid: string };
     
     arr.push(newItem as T);
     await this.save(collection, arr);
