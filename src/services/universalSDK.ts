@@ -67,7 +67,8 @@ class UniversalSDK {
     return {
       Authorization: `token ${this.token}`,
       'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github.v3+json'
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'TextWeaverPro-SDK/1.0'
     };
   }
 
@@ -85,27 +86,37 @@ class UniversalSDK {
       requestOptions.body = JSON.stringify(body);
     }
 
-    if (method === 'GET') {
-      const urlWithRef = `${url}?ref=${this.branch}`;
-      const response = await fetch(urlWithRef, requestOptions);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`GitHub API error (${response.status}):`, errorText);
-        throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
+    try {
+      if (method === 'GET') {
+        const urlWithRef = `${url}?ref=${this.branch}`;
+        const response = await fetch(urlWithRef, requestOptions);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`GitHub API error (${response.status}):`, errorText);
+          
+          if (response.status === 404) {
+            return null; // File doesn't exist
+          }
+          
+          throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
+        }
+        
+        return response.json();
+      } else {
+        const response = await fetch(url, requestOptions);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`GitHub API error (${response.status}):`, errorText);
+          throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
+        }
+        
+        return response.json();
       }
-      
-      return response.json();
-    } else {
-      const response = await fetch(url, requestOptions);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`GitHub API error (${response.status}):`, errorText);
-        throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
-      }
-      
-      return response.json();
+    } catch (error) {
+      console.error(`Request failed for ${method} ${url}:`, error);
+      throw error;
     }
   }
 
@@ -115,11 +126,11 @@ class UniversalSDK {
       const filePath = `${this.basePath}/${collection}.json`;
       const response = await this.request(filePath);
       
-      if (response.content) {
+      if (response && response.content) {
         const content = atob(response.content);
         const data = JSON.parse(content);
         console.log(`Retrieved ${data.length} items from ${collection}`);
-        return data;
+        return Array.isArray(data) ? data : [];
       }
       
       console.log(`Collection ${collection} is empty or doesn't exist`);
@@ -141,25 +152,33 @@ class UniversalSDK {
     
     try {
       const existing = await this.request(filePath);
-      sha = existing.sha;
-      console.log(`Found existing ${collection}.json with SHA: ${sha}`);
+      if (existing && existing.sha) {
+        sha = existing.sha;
+        console.log(`Found existing ${collection}.json with SHA: ${sha}`);
+      }
     } catch (error) {
       console.log(`Creating new ${collection}.json file`);
     }
 
     const content = JSON.stringify(data, null, 2);
-    const encodedContent = btoa(content);
+    const encodedContent = btoa(unescape(encodeURIComponent(content)));
     
     const body = {
-      message: `Update ${collection} data`,
+      message: `Update ${collection} data - ${new Date().toISOString()}`,
       content: encodedContent,
       branch: this.branch,
       ...(sha ? { sha } : {})
     };
 
     console.log(`Saving ${data.length} items to ${collection}`);
-    await this.request(filePath, 'PUT', body);
-    console.log(`Successfully saved ${collection}`);
+    
+    try {
+      const result = await this.request(filePath, 'PUT', body);
+      console.log(`Successfully saved ${collection}`, result);
+    } catch (error) {
+      console.error(`Failed to save ${collection}:`, error);
+      throw error;
+    }
   }
 
   async insert<T = any>(collection: string, item: Partial<T>): Promise<T & { id: string; uid: string }> {
@@ -174,13 +193,13 @@ class UniversalSDK {
       ...item,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    } as T & { id: string; uid: string };
+    };
     
-    arr.push(newItem);
+    arr.push(newItem as T);
     await this.save(collection, arr);
     
     console.log(`Inserted new item into ${collection}:`, newItem);
-    return newItem;
+    return newItem as T & { id: string; uid: string };
   }
 
   async update<T = any>(collection: string, key: string, updates: Partial<T>): Promise<T> {
@@ -223,9 +242,15 @@ class UniversalSDK {
   }
 
   verifyPassword(password: string, hashString: string): boolean {
-    const [salt, hash] = hashString.split('$');
-    const testHash = btoa([...password + salt].map(c => c.charCodeAt(0).toString(16)).join(''));
-    return testHash === hash;
+    try {
+      const [salt, hash] = hashString.split('$');
+      if (!salt || !hash) return false;
+      const testHash = btoa([...password + salt].map(c => c.charCodeAt(0).toString(16)).join(''));
+      return testHash === hash;
+    } catch (error) {
+      console.error('Password verification error:', error);
+      return false;
+    }
   }
 
   async login(email: string, password: string): Promise<string> {
@@ -234,15 +259,23 @@ class UniversalSDK {
     const user = users.find(u => u.email === email);
     
     if (!user) {
+      console.error(`User not found: ${email}`);
       throw new Error('User not found');
     }
     
     if (!user.password) {
+      console.error(`Password not set for user: ${email}`);
       throw new Error('Password not set for user');
     }
     
     if (!this.verifyPassword(password, user.password)) {
+      console.error(`Invalid password for user: ${email}`);
       throw new Error('Invalid password');
+    }
+    
+    if (!user.isActive) {
+      console.error(`User account is deactivated: ${email}`);
+      throw new Error('Account is deactivated');
     }
     
     const token = this.createSession(user);
@@ -265,11 +298,12 @@ class UniversalSDK {
     );
     
     if (!validCode) {
+      console.error(`Invalid invitation code: ${profile.inviteCode}`);
       throw new Error('Invalid invitation code');
     }
 
     const hashedPassword = this.hashPassword(password);
-    const user = await this.insert<User>('users', { 
+    const userData = { 
       email, 
       password: hashedPassword, 
       fullName: profile.fullName,
@@ -280,7 +314,9 @@ class UniversalSDK {
       dailyTextTranslations: 0,
       lastResetDate: new Date().toDateString(),
       isActive: true
-    });
+    };
+    
+    const user = await this.insert<User>('users', userData);
 
     // Mark invite code as used
     await this.update('invite_codes', validCode.id, {
@@ -306,10 +342,14 @@ class UniversalSDK {
 
   getCurrentUser(token: string): User | null {
     const session = this.sessionStore[token];
-    if (!session) return null;
+    if (!session) {
+      console.log('Session not found for token');
+      return null;
+    }
     
     // Check if session is expired
     if (Date.now() > session.expires) {
+      console.log('Session expired for token');
       delete this.sessionStore[token];
       return null;
     }
@@ -318,89 +358,119 @@ class UniversalSDK {
   }
 
   async init(): Promise<UniversalSDK> {
-    console.log('Initializing SDK and seeding demo data...');
+    console.log('Initializing SDK and validating GitHub connection...');
     
-    // Check if repository exists and is accessible
+    // Validate GitHub access
     try {
-      await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}`, {
+      const repoResponse = await fetch(`https://api.github.com/repos/${this.owner}/${this.repo}`, {
         headers: this.headers()
       });
-      console.log('Repository access confirmed');
+      
+      if (!repoResponse.ok) {
+        throw new Error(`Repository access failed: ${repoResponse.status}`);
+      }
+      
+      console.log('✅ Repository access confirmed');
     } catch (error) {
-      console.error('Repository access failed:', error);
-      throw new Error('Cannot access GitHub repository. Please check your credentials.');
+      console.error('❌ Repository access failed:', error);
+      throw new Error('Cannot access GitHub repository. Please check your credentials and repository settings.');
     }
 
-    // Seed demo data
-    await this.seedDemoData();
-    console.log('SDK initialization complete');
+    // Initialize database structure
+    await this.initializeDatabase();
+    console.log('✅ SDK initialization complete');
     
     return this;
   }
 
-  private async seedDemoData(): Promise<void> {
-    console.log('Seeding demo data...');
+  private async initializeDatabase(): Promise<void> {
+    console.log('🔄 Initializing database structure...');
     
-    // Seed demo users
-    const existingUsers = await this.get<User>('users');
-    if (existingUsers.length === 0) {
-      const demoUsers = [
-        {
-          email: 'demo@textweaverpro.com',
-          password: this.hashPassword('demo123'),
-          fullName: 'Demo User',
-          verified: true,
-          roles: ['user'],
-          permissions: [],
-          walletBalance: 50,
-          dailyTextTranslations: 0,
-          lastResetDate: new Date().toDateString(),
-          isActive: true
-        },
-        {
-          email: 'admin@textweaverpro.com',
-          password: this.hashPassword('admin123'),
-          fullName: 'Admin User',
-          verified: true,
-          roles: ['admin', 'user'],
-          permissions: ['manage_users', 'manage_content'],
-          walletBalance: 100,
-          dailyTextTranslations: 0,
-          lastResetDate: new Date().toDateString(),
-          isActive: true
-        }
-      ];
-
-      await this.save('users', demoUsers);
-      console.log('Demo users seeded successfully');
-    }
-
-    // Seed invite codes
-    const existingCodes = await this.get('invite_codes');
-    if (existingCodes.length === 0) {
-      const inviteCodes = [
-        {
-          code: 'WELCOME2024',
-          used: false,
-          createdBy: 'system',
-          createdFor: 'public',
-          usedBy: '',
-          createdAt: new Date().toISOString()
-        }
-      ];
-
-      await this.save('invite_codes', inviteCodes);
-      console.log('Invite codes seeded successfully');
-    }
-
-    // Seed other collections as needed
-    const collections = ['blog_posts', 'documentation', 'transactions', 'invite_requests'];
+    const collections = [
+      'users',
+      'invite_codes', 
+      'blog_posts',
+      'documentation',
+      'transactions',
+      'invite_requests'
+    ];
+    
     for (const collection of collections) {
-      const existing = await this.get(collection);
-      if (existing.length === 0) {
-        await this.save(collection, []);
-        console.log(`Initialized empty ${collection} collection`);
+      try {
+        const existing = await this.get(collection);
+        console.log(`📁 Collection ${collection}: ${existing.length} items`);
+        
+        // Seed initial data if collection is empty
+        if (existing.length === 0) {
+          await this.seedCollection(collection);
+        }
+      } catch (error) {
+        console.error(`❌ Error initializing ${collection}:`, error);
+        // Continue with other collections
       }
+    }
+  }
+
+  private async seedCollection(collection: string): Promise<void> {
+    console.log(`🌱 Seeding ${collection}...`);
+    
+    try {
+      switch (collection) {
+        case 'users':
+          const demoUsers = [
+            {
+              email: 'demo@textweaverpro.com',
+              password: this.hashPassword('demo123'),
+              fullName: 'Demo User',
+              verified: true,
+              roles: ['user'],
+              permissions: [],
+              walletBalance: 50,
+              dailyTextTranslations: 0,
+              lastResetDate: new Date().toDateString(),
+              isActive: true
+            },
+            {
+              email: 'admin@textweaverpro.com',
+              password: this.hashPassword('admin123'),
+              fullName: 'Admin User',
+              verified: true,
+              roles: ['admin', 'user'],
+              permissions: ['manage_users', 'manage_content'],
+              walletBalance: 100,
+              dailyTextTranslations: 0,
+              lastResetDate: new Date().toDateString(),
+              isActive: true
+            }
+          ];
+          await this.save('users', demoUsers);
+          console.log('✅ Demo users seeded');
+          break;
+          
+        case 'invite_codes':
+          const inviteCodes = [
+            {
+              code: 'WELCOME2024',
+              used: false,
+              createdBy: 'system',
+              createdFor: 'public',
+              usedBy: '',
+              createdAt: new Date().toISOString()
+            }
+          ];
+          await this.save('invite_codes', inviteCodes);
+          console.log('✅ Invite codes seeded');
+          break;
+          
+        default:
+          // Initialize empty collection
+          await this.save(collection, []);
+          console.log(`✅ Empty ${collection} collection initialized`);
+          break;
+      }
+    } catch (error) {
+      console.error(`❌ Failed to seed ${collection}:`, error);
+      throw error;
     }
   }
 }
