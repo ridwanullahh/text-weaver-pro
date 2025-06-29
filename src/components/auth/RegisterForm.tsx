@@ -30,10 +30,11 @@ const RegisterForm = () => {
     try {
       await register(formData.email, formData.password, {
         fullName: formData.fullName,
-        inviteCode: formData.inviteCode
+        inviteCode: formData.inviteCode // Will be handled as optional in SDK
       });
     } catch (error) {
       console.error('Registration failed:', error);
+      alert(error instanceof Error ? error.message : 'Registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +53,7 @@ const RegisterForm = () => {
       <Card className="bg-white/10 backdrop-blur-md border-white/20">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-white">Create Account</CardTitle>
-          <p className="text-white/70">Join TextWeaver Pro with your invitation</p>
+          <p className="text-white/70">Join TextWeaver Pro</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -82,11 +83,10 @@ const RegisterForm = () => {
               <Key className="absolute left-3 top-3 h-5 w-5 text-white/50" />
               <Input
                 type="text"
-                placeholder="Invitation Code"
+                placeholder="Invitation Code (Optional)"
                 value={formData.inviteCode}
                 onChange={(e) => handleInputChange('inviteCode', e.target.value)}
                 className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                required
               />
             </div>
             <div className="relative">
