@@ -7,14 +7,15 @@ const hasValidCredentials = () => {
   const repo = import.meta.env.VITE_GITHUB_REPO;
   const token = import.meta.env.VITE_GITHUB_TOKEN;
   
+  console.log('Checking credentials:', { owner, repo, hasToken: !!token });
   return owner && repo && token && owner !== 'demo' && token !== 'demo-token';
 };
 
 // SDK Configuration with proper environment variables
 const sdkConfig = {
-  owner: import.meta.env.VITE_GITHUB_OWNER || 'ridwanullahh',
-  repo: import.meta.env.VITE_GITHUB_REPO || 'bettertranslatordb',
-  token: import.meta.env.VITE_GITHUB_TOKEN || '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',
+  owner: import.meta.env.VITE_GITHUB_OWNER,
+  repo: import.meta.env.VITE_GITHUB_REPO,
+  token: import.meta.env.VITE_GITHUB_TOKEN,
   branch: import.meta.env.VITE_GITHUB_BRANCH || 'main',
   basePath: 'db',
   cloudinary: {
@@ -25,10 +26,23 @@ const sdkConfig = {
   }
 };
 
+console.log('SDK Config:', {
+  owner: sdkConfig.owner,
+  repo: sdkConfig.repo,
+  hasToken: !!sdkConfig.token,
+  branch: sdkConfig.branch
+});
+
+// Validate required configuration
+if (!sdkConfig.owner || !sdkConfig.repo || !sdkConfig.token) {
+  console.error('Missing required GitHub configuration. Please check your .env file.');
+  throw new Error('GitHub configuration incomplete');
+}
+
 // Create SDK instance
 export const sdk = new UniversalSDK(sdkConfig);
 
-// Initialize SDK with demo data seeding
+// Initialize SDK with proper error handling
 export const initializeSDK = async (): Promise<boolean> => {
   try {
     console.log('Initializing SDK with config:', {
@@ -38,29 +52,24 @@ export const initializeSDK = async (): Promise<boolean> => {
       hasValidCredentials: hasValidCredentials()
     });
 
-    if (!hasValidCredentials()) {
-      console.warn('GitHub credentials not configured properly, using demo mode');
-      // The SDK will automatically seed demo data when initialized
-      await sdk.init();
-      return true;
-    }
-
     await sdk.init();
-    console.log('SDK initialized successfully with GitHub backend');
+    console.log('SDK initialized successfully');
     return true;
   } catch (error) {
     console.error('SDK initialization failed:', error);
-    // Even if GitHub fails, we can still use demo data
-    return true;
+    throw error;
   }
 };
 
-// Enhanced SDK wrapper with better error handling and toasts
+// Enhanced SDK wrapper with better error handling
 const createSDKWrapper = () => {
   return {
     async get<T = any>(collection: string): Promise<T[]> {
       try {
-        return await sdk.get<T>(collection);
+        console.log(`Getting collection: ${collection}`);
+        const result = await sdk.get<T>(collection);
+        console.log(`Retrieved ${result.length} items from ${collection}`);
+        return result;
       } catch (error) {
         console.error(`Failed to get ${collection}:`, error);
         throw new Error(`Failed to load ${collection}`);
@@ -69,7 +78,10 @@ const createSDKWrapper = () => {
 
     async insert<T = any>(collection: string, item: Partial<T>): Promise<T & { id: string; uid: string }> {
       try {
-        return await sdk.insert<T>(collection, item);
+        console.log(`Inserting into ${collection}:`, item);
+        const result = await sdk.insert<T>(collection, item);
+        console.log(`Inserted into ${collection}:`, result);
+        return result;
       } catch (error) {
         console.error(`Failed to insert into ${collection}:`, error);
         throw error;
@@ -78,7 +90,10 @@ const createSDKWrapper = () => {
 
     async update<T = any>(collection: string, key: string, updates: Partial<T>): Promise<T> {
       try {
-        return await sdk.update<T>(collection, key, updates);
+        console.log(`Updating ${collection} key ${key}:`, updates);
+        const result = await sdk.update<T>(collection, key, updates);
+        console.log(`Updated ${collection}:`, result);
+        return result;
       } catch (error) {
         console.error(`Failed to update ${collection}:`, error);
         throw error;
@@ -87,17 +102,22 @@ const createSDKWrapper = () => {
 
     async delete<T = any>(collection: string, key: string): Promise<void> {
       try {
-        return await sdk.delete<T>(collection, key);
+        console.log(`Deleting from ${collection} key ${key}`);
+        await sdk.delete<T>(collection, key);
+        console.log(`Deleted from ${collection}`);
       } catch (error) {
         console.error(`Failed to delete from ${collection}:`, error);
         throw error;
       }
     },
 
-    // Authentication methods with better error handling
+    // Authentication methods
     async login(email: string, password: string): Promise<string> {
       try {
-        return await sdk.login(email, password);
+        console.log(`Attempting login for: ${email}`);
+        const token = await sdk.login(email, password);
+        console.log('Login successful');
+        return token;
       } catch (error) {
         console.error('Login failed:', error);
         throw new Error('Invalid email or password');
@@ -106,7 +126,10 @@ const createSDKWrapper = () => {
 
     async register(email: string, password: string, profile: any): Promise<any> {
       try {
-        return await sdk.register(email, password, profile);
+        console.log(`Attempting registration for: ${email}`);
+        const result = await sdk.register(email, password, profile);
+        console.log('Registration successful');
+        return result;
       } catch (error) {
         console.error('Registration failed:', error);
         throw error;
