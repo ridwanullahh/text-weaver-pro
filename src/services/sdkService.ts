@@ -97,7 +97,7 @@ const createSDKWrapper = () => {
     // Authentication methods with better error handling
     async login(email: string, password: string): Promise<string> {
       try {
-        return await sdk.login(email, password) as Promise<string>;
+        return await sdk.login(email, password);
       } catch (error) {
         console.error('Login failed:', error);
         throw new Error('Invalid email or password');
