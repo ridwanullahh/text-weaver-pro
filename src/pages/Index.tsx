@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +12,8 @@ import TranslationAnalytics from '../components/TranslationAnalytics';
 import TranslationQuality from '../components/TranslationQuality';
 import LiveTranslationViewer from '../components/LiveTranslationViewer';
 import WalletManager from '../components/wallet/WalletManager';
+import UserDashboard from '../components/dashboard/UserDashboard';
+import UserSettings from '../components/settings/UserSettings';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
 import { LogOut, Settings } from 'lucide-react';
@@ -24,7 +25,7 @@ const Index = () => {
   const { user, logout } = useAuth();
   const [currentProject, setCurrentProject] = useState<TranslationProject | null>(null);
   const [projects, setProjects] = useState<TranslationProject[]>([]);
-  const [activeTab, setActiveTab] = useState('upload');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,13 +64,15 @@ const Index = () => {
   };
 
   const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'upload', label: 'Upload', icon: '📤' },
     { id: 'projects', label: 'Projects', icon: '📁' },
     { id: 'translate', label: 'Translate', icon: '🔄' },
     { id: 'live', label: 'Live View', icon: '👁️' },
-    { id: 'analytics', label: 'Analytics', icon: '📊' },
+    { id: 'analytics', label: 'Analytics', icon: '📈' },
     { id: 'quality', label: 'Quality', icon: '⭐' },
-    { id: 'wallet', label: 'Wallet', icon: '💰' }
+    { id: 'wallet', label: 'Wallet', icon: '💰' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' }
   ];
 
   if (error) {
@@ -181,6 +184,14 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
+              {activeTab === 'dashboard' && (
+                <UserDashboard />
+              )}
+
+              {activeTab === 'settings' && (
+                <UserSettings />
+              )}
+
               {activeTab === 'upload' && (
                 <UploadSection onProjectCreate={handleProjectCreate} />
               )}

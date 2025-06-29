@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import LoginForm from '@/components/auth/LoginForm';
@@ -19,13 +18,18 @@ const Auth = () => {
     try {
       setIsSeeding(true);
       
-      // Create demo users directly
+      toast({
+        title: "Seeding Demo Data",
+        description: "Creating demo users and initial data...",
+      });
+      
+      // Create demo users with properly hashed passwords
       const demoUsers = [
         {
           id: '1',
           uid: 'demo-user-1',
           email: 'demo@textweaverpro.com',
-          password: '3a5f6819-dc3f-4b2a-9d8e-1c7b9e4f2a8d$NjQzZTZkNzA2ZjJkNzQ2NTc4NzQ3NzY1NjE3NjY1NzI3MDcyNmYyZTYzNmY2ZDNhNWY2ODE5MmQ2NDYzMzM2NjJkMzRiMzJhMmQ5NjQ4ZTJkMzE2Mzc2Mzk2NTM0NjYzMmE4NjQ=',
+          password: wrappedSDK.hashPassword('demo123'),
           fullName: 'Demo User',
           verified: true,
           roles: ['user'],
@@ -39,7 +43,7 @@ const Auth = () => {
           id: '2',
           uid: 'admin-user-1',
           email: 'admin@textweaverpro.com',
-          password: '7b2c8f91-e4a5-4d6b-9c3e-2f8a1b5d9c7e$NjE2NDZkNjk2ZTMxMzIzMzdhMmM4ZjkxMmQ2NTRhMzUyZDRkMzY2MjJkMzk2MzMzNjUyZDJmMzg2MTMxNjIzNTY0Mzk2Mzc2NTMwNzM2MzY4NjI2NDJkMzEzMjMzMzc2MjJkMzY2MzJkMzg2NzZlNjU2ZjJkNDQ2NDJk',
+          password: wrappedSDK.hashPassword('admin123'),
           fullName: 'Admin User',
           verified: true,
           roles: ['admin', 'user'],
@@ -83,15 +87,15 @@ const Auth = () => {
       }
 
       toast({
-        title: "Demo Data Seeded",
-        description: "Demo users created successfully. Try logging in now.",
+        title: "Demo Data Seeded Successfully! 🎉",
+        description: "Demo users created. You can now login with the provided credentials.",
       });
 
     } catch (error) {
       console.error('Failed to seed demo data:', error);
       toast({
         title: "Seeding Failed",
-        description: "Failed to create demo data. Check console for details.",
+        description: "Failed to create demo data. Please check console for details.",
         variant: "destructive"
       });
     } finally {
@@ -143,14 +147,17 @@ const Auth = () => {
           <Button
             onClick={seedDemoData}
             disabled={isSeeding}
-            className="bg-orange-500 hover:bg-orange-600 text-white mb-4"
+            className="bg-orange-500 hover:bg-orange-600 text-white mb-4 w-full"
           >
-            {isSeeding ? 'Seeding...' : 'Seed Demo Data'}
+            {isSeeding ? 'Seeding Demo Data...' : '🌱 Seed Demo Data'}
           </Button>
-          <p className="text-white/40 text-xs">
-            Demo: demo@textweaverpro.com / demo123<br/>
-            Admin: admin@textweaverpro.com / admin123
-          </p>
+          <div className="bg-white/10 backdrop-blur-md rounded-lg p-3 text-sm">
+            <p className="text-white/90 font-medium mb-2">Demo Credentials:</p>
+            <p className="text-white/70 text-xs">
+              📧 <strong>User:</strong> demo@textweaverpro.com / demo123<br/>
+              👑 <strong>Admin:</strong> admin@textweaverpro.com / admin123
+            </p>
+          </div>
         </div>
 
         <div className="mb-6">
