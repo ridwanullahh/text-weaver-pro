@@ -150,6 +150,7 @@ class UniversalSDK {
     const filePath = `${this.basePath}/${collection}.json`;
     let sha: string | undefined;
     
+    // Always get the latest SHA before saving to avoid conflicts
     try {
       const existing = await this.request(filePath);
       if (existing && existing.sha) {
@@ -176,6 +177,26 @@ class UniversalSDK {
       const result = await this.request(filePath, 'PUT', body);
       console.log(`Successfully saved ${collection}`, result);
     } catch (error) {
+      // If we get a 409 conflict, retry once with fresh SHA
+      if (error instanceof Error && error.message.includes('409')) {
+        console.log(`SHA conflict detected for ${collection}, retrying with fresh SHA...`);
+        try {
+          const freshFile = await this.request(filePath);
+          if (freshFile && freshFile.sha) {
+            const retryBody = {
+              ...body,
+              sha: freshFile.sha
+            };
+            const retryResult = await this.request(filePath, 'PUT', retryBody);
+            console.log(`Successfully saved ${collection} on retry`, retryResult);
+            return;
+          }
+        } catch (retryError) {
+          console.error(`Retry failed for ${collection}:`, retryError);
+          throw retryError;
+        }
+      }
+      
       console.error(`Failed to save ${collection}:`, error);
       throw error;
     }
@@ -291,25 +312,8 @@ class UniversalSDK {
       throw new Error('Email already registered');
     }
     
-    // Invitation code is now optional - skip validation if not provided
-    if (profile.inviteCode) {
-      const inviteCodes = await this.get('invite_codes');
-      const validCode = inviteCodes.find((code: any) => 
-        code.code === profile.inviteCode && !code.used
-      );
-      
-      if (!validCode) {
-        console.error(`Invalid invitation code: ${profile.inviteCode}`);
-        throw new Error('Invalid invitation code');
-      }
-
-      // Mark invite code as used
-      await this.update('invite_codes', validCode.id, {
-        used: true,
-        usedBy: email,
-        usedAt: new Date().toISOString()
-      });
-    }
+    // Invitation code is now optional - no validation needed
+    console.log('Registration proceeding without invitation code validation');
 
     const hashedPassword = this.hashPassword(password);
     const userData = { 
