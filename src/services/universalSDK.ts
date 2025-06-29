@@ -1,4 +1,3 @@
-
 // Universal SDK for GitHub-based backend with proper schema validation
 interface UniversalSDKConfig {
   owner: string;
@@ -193,13 +192,13 @@ class UniversalSDK {
       ...item,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
-    };
+    } as T & { id: string; uid: string };
     
     arr.push(newItem as T);
     await this.save(collection, arr);
     
     console.log(`Inserted new item into ${collection}:`, newItem);
-    return newItem as T & { id: string; uid: string };
+    return newItem;
   }
 
   async update<T = any>(collection: string, key: string, updates: Partial<T>): Promise<T> {
