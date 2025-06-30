@@ -7,6 +7,7 @@ import { initializeSDK } from './services/sdkService';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import Index from './pages/Index';
+import TranslationApp from './pages/TranslationApp';
 import Admin from './pages/Admin';
 import Features from './pages/Features';
 import Pricing from './pages/Pricing';
@@ -69,7 +70,7 @@ function App() {
             
             {/* Protected Routes */}
             <Route 
-              path="/app" 
+              path="/dashboard" 
               element={
                 <ProtectedRoute>
                   <Index />
@@ -77,10 +78,10 @@ function App() {
               } 
             />
             <Route 
-              path="/dashboard" 
+              path="/app" 
               element={
                 <ProtectedRoute>
-                  <Index />
+                  <TranslationApp />
                 </ProtectedRoute>
               } 
             />
@@ -92,6 +93,9 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            
+            {/* Legacy Routes - Redirect to new structure */}
+            <Route path="/index" element={<Navigate to="/dashboard" replace />} />
             
             {/* 404 Route */}
             <Route path="*" element={<NotFound />} />

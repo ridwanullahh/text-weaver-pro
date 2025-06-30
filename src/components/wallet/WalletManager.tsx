@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { paystackService } from '@/services/paystackService';
-import { Wallet, Plus, CreditCard, History } from 'lucide-react';
+import { Wallet, Plus, CreditCard, History, AlertCircle } from 'lucide-react';
 
 const WalletManager = () => {
   const { user, updateWallet } = useAuth();
@@ -30,44 +30,51 @@ const WalletManager = () => {
 
     setIsLoading(true);
     try {
-      // Check if Paystack is enabled
-      const paystackEnabled = import.meta.env.VITE_ENABLE_PAYSTACK === 'true';
-      
-      if (paystackEnabled && import.meta.env.VITE_PAYSTACK_PUBLIC_KEY) {
-        // Initialize Paystack payment
-        const paymentData = {
-          amount: amount,
-          email: user.email,
-          currency: 'NGN',
-          metadata: {
-            userId: user.id,
-            purpose: 'wallet_funding'
-          }
-        };
+      // Check if Paystack is configured
+      if (!paystackService.isConfigured()) {
+        toast({
+          title: "Payment Not Configured",
+          description: "Payment system is not properly configured. Please contact support.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-        const response = await paystackService.initializePayment(paymentData);
-        
-        if (response.status) {
-          // Open payment in new tab
-          window.open(response.data.authorization_url, '_blank');
-          
-          toast({
-            title: "Payment Initialized",
-            description: "Complete your payment in the new tab to fund your wallet.",
-          });
-        } else {
-          throw new Error(response.message);
+      // Initialize Paystack payment
+      const paymentData = {
+        amount: amount,
+        email: user.email,
+        currency: 'NGN',
+        callback_url: `${window.location.origin}/dashboard?payment=success`,
+        metadata: {
+          userId: user.id,
+          purpose: 'wallet_funding',
+          custom_fields: [
+            {
+              display_name: "User ID",
+              variable_name: "user_id",
+              value: user.id
+            }
+          ]
         }
-      } else {
-        // Demo mode - simulate successful payment
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await updateWallet(amount);
-        setFundAmount('');
+      };
+
+      const response = await paystackService.initializePayment(paymentData);
+      
+      if (response.status && response.data?.authorization_url) {
+        // Open payment in new tab
+        window.open(response.data.authorization_url, '_blank');
         
         toast({
-          title: "Wallet Funded Successfully! 💰",
-          description: `$${amount.toFixed(2)} has been added to your wallet.`,
+          title: "Payment Initialized",
+          description: "Complete your payment in the new tab to fund your wallet.",
         });
+
+        // Start polling for payment verification
+        const reference = response.data.reference;
+        startPaymentVerification(reference, amount);
+      } else {
+        throw new Error(response.message || 'Failed to initialize payment');
       }
     } catch (error: any) {
       console.error('Payment failed:', error);
@@ -81,16 +88,62 @@ const WalletManager = () => {
     }
   };
 
+  const startPaymentVerification = async (reference: string, amount: number) => {
+    // Poll for payment verification every 5 seconds for up to 5 minutes
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutes with 5-second intervals
+
+    const pollPayment = async () => {
+      try {
+        const verification = await paystackService.verifyPayment(reference);
+        
+        if (verification.status && verification.data?.status === 'success') {
+          // Payment successful - update wallet
+          await updateWallet(amount);
+          setFundAmount('');
+          
+          toast({
+            title: "Payment Successful! 💰",
+            description: `₦${amount.toFixed(2)} has been added to your wallet.`,
+          });
+          return;
+        } else if (verification.data?.status === 'failed') {
+          toast({
+            title: "Payment Failed",
+            description: "Your payment was not successful. Please try again.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // Continue polling if payment is still pending
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(pollPayment, 5000);
+        } else {
+          toast({
+            title: "Payment Verification Timeout",
+            description: "Unable to verify payment status. If you completed the payment, it may take a few minutes to reflect.",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error('Payment verification error:', error);
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(pollPayment, 5000);
+        }
+      }
+    };
+
+    setTimeout(pollPayment, 5000); // Start polling after 5 seconds
+  };
+
   if (!user) return null;
 
-  const isNigeria = user.email.includes('.ng') || user.email.includes('nigeria');
-  const currency = isNigeria ? '₦' : '$';
-  const pagePrice = isNigeria ? 
-    parseInt(import.meta.env.VITE_NIGERIA_PAGE_PRICE || '10') : 
-    parseFloat(import.meta.env.VITE_INTERNATIONAL_PAGE_PRICE || '0.10');
-  const textPrice = isNigeria ? 
-    parseInt(import.meta.env.VITE_NIGERIA_TEXT_PRICE || '5') : 
-    parseFloat(import.meta.env.VITE_INTERNATIONAL_TEXT_PRICE || '0.05');
+  const currency = '₦'; // Nigerian Naira for Paystack
+  const pagePrice = parseInt(import.meta.env.VITE_NIGERIA_PAGE_PRICE || '10');
+  const textPrice = parseInt(import.meta.env.VITE_NIGERIA_TEXT_PRICE || '5');
 
   return (
     <div className="space-y-6">
@@ -109,20 +162,30 @@ const WalletManager = () => {
             <p className="text-white/60 text-sm">Available balance</p>
           </div>
 
+          {!paystackService.isConfigured() && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 text-yellow-400">
+                <AlertCircle className="w-4 h-4" />
+                <p className="text-sm">Payment system not configured. Contact support to enable funding.</p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="flex gap-2">
               <Input
                 type="number"
-                placeholder="Amount to add"
+                placeholder="Amount to add (₦)"
                 value={fundAmount}
                 onChange={(e) => setFundAmount(e.target.value)}
                 className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                step="0.01"
-                min="1"
+                step="1"
+                min="100"
+                disabled={!paystackService.isConfigured()}
               />
               <Button
                 onClick={handleFundWallet}
-                disabled={isLoading || !fundAmount}
+                disabled={isLoading || !fundAmount || !paystackService.isConfigured()}
                 className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shrink-0"
               >
                 {isLoading ? (
@@ -136,30 +199,18 @@ const WalletManager = () => {
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              {isNigeria ? 
-                [500, 1000, 2500].map(amount => (
-                  <Button
-                    key={amount}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFundAmount(amount.toString())}
-                    className="border-white/20 text-white hover:bg-white/10"
-                  >
-                    ₦{amount}
-                  </Button>
-                )) :
-                [5, 10, 25].map(amount => (
-                  <Button
-                    key={amount}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFundAmount(amount.toString())}
-                    className="border-white/20 text-white hover:bg-white/10"
-                  >
-                    ${amount}
-                  </Button>
-                ))
-              }
+              {[500, 1000, 2500].map(amount => (
+                <Button
+                  key={amount}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFundAmount(amount.toString())}
+                  className="border-white/20 text-white hover:bg-white/10"
+                  disabled={!paystackService.isConfigured()}
+                >
+                  ₦{amount}
+                </Button>
+              ))}
             </div>
 
             <div className="bg-white/5 rounded-lg p-4">
