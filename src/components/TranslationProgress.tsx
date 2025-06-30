@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, RotateCcw, CheckCircle, AlertCircle, Clock, Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { TranslationProject } from '../types/translation';
 import { translationService } from '../services/translationService';
-import { dbUtils } from '../utils/database';
-import { toast } from '@/hooks/use-toast';
+import { Play, Pause, RotateCcw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 
 interface TranslationProgressProps {
   project: TranslationProject;
@@ -13,289 +15,178 @@ interface TranslationProgressProps {
 
 const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) => {
   const [isTranslating, setIsTranslating] = useState(false);
-  const [currentProgress, setCurrentProgress] = useState(project.progress);
-  const [estimatedTime, setEstimatedTime] = useState(0);
+  const [progress, setProgress] = useState(project.progress || 0);
   const [currentLanguage, setCurrentLanguage] = useState('');
+  const [estimatedTime, setEstimatedTime] = useState(0);
   const [tokensUsed, setTokensUsed] = useState(0);
-  const [actualCompletionStatus, setActualCompletionStatus] = useState<{
-    completed: number;
-    total: number;
-    percentage: number;
-  }>({ completed: 0, total: 0, percentage: 0 });
 
-  useEffect(() => {
-    setCurrentProgress(project.progress);
-    checkActualCompletionStatus();
-  }, [project.progress, project.id]);
-
-  const checkActualCompletionStatus = async () => {
-    try {
-      const chunks = await dbUtils.getProjectChunks(project.id!);
-      const totalChunks = chunks.length * project.targetLanguages.length;
-      
-      let actuallyCompleted = 0;
-      chunks.forEach(chunk => {
-        project.targetLanguages.forEach(language => {
-          if (chunk.translations[language] && chunk.translations[language].trim()) {
-            actuallyCompleted++;
-          }
-        });
-      });
-      
-      const actualPercentage = totalChunks > 0 ? (actuallyCompleted / totalChunks) * 100 : 0;
-      
-      setActualCompletionStatus({
-        completed: actuallyCompleted,
-        total: totalChunks,
-        percentage: actualPercentage
-      });
-    } catch (error) {
-      console.error('Error checking completion status:', error);
-    }
-  };
-
-  const handleStartTranslation = async () => {
+  const startTranslation = async () => {
     if (project.targetLanguages.length === 0) {
-      toast({
-        title: "No Target Languages",
-        description: "Please select at least one target language before starting translation.",
-        variant: "destructive"
-      });
+      alert('Please select at least one target language');
       return;
     }
 
     setIsTranslating(true);
-    
+
     try {
       await translationService.startTranslation(project, {
-        onProgress: (progress) => {
-          setCurrentProgress(progress.percentage);
-          setCurrentLanguage(progress.currentLanguage);
-          setEstimatedTime(progress.estimatedTimeRemaining);
-          setTokensUsed(progress.tokensUsed);
-          checkActualCompletionStatus();
+        onProgress: (progressData) => {
+          setProgress(progressData.percentage);
+          setCurrentLanguage(progressData.currentLanguage);
+          setEstimatedTime(progressData.estimatedTimeRemaining);
+          setTokensUsed(progressData.tokensUsed);
         },
         onComplete: () => {
           setIsTranslating(false);
-          checkActualCompletionStatus();
-          toast({
-            title: "Translation Complete",
-            description: "Your project has been translated successfully!",
-          });
+          setProgress(100);
         },
         onError: (error) => {
           setIsTranslating(false);
-          checkActualCompletionStatus();
-          toast({
-            title: "Translation Error",
-            description: error.message,
-            variant: "destructive"
-          });
+          console.error('Translation error:', error);
+          alert(`Translation failed: ${error.message}`);
         }
       });
     } catch (error) {
       setIsTranslating(false);
-      console.error('Translation error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start translation. Please try again.",
-        variant: "destructive"
-      });
+      console.error('Translation start error:', error);
     }
   };
 
-  const handlePauseTranslation = async () => {
+  const pauseTranslation = async () => {
     await translationService.pauseTranslation(project.id!);
     setIsTranslating(false);
-    
-    toast({
-      title: "Translation Paused",
-      description: "Translation has been paused. You can resume it anytime.",
-    });
   };
 
-  const handleResetTranslation = async () => {
+  const resetTranslation = async () => {
     await translationService.resetTranslation(project.id!);
-    setCurrentProgress(0);
+    setProgress(0);
     setCurrentLanguage('');
     setEstimatedTime(0);
     setTokensUsed(0);
-    setActualCompletionStatus({ completed: 0, total: 0, percentage: 0 });
-    
-    toast({
-      title: "Translation Reset",
-      description: "Translation progress has been reset.",
-    });
+  };
+
+  const getStatusIcon = () => {
+    if (project.status === 'completed') return <CheckCircle className="w-5 h-5 text-green-400" />;
+    if (project.status === 'error') return <AlertCircle className="w-5 h-5 text-red-400" />;
+    if (isTranslating) return <Clock className="w-5 h-5 text-blue-400 animate-spin" />;
+    return <Play className="w-5 h-5 text-white/60" />;
   };
 
   const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${remainingSeconds}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${remainingSeconds}s`;
-    } else {
-      return `${remainingSeconds}s`;
-    }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isActuallyCompleted = actualCompletionStatus.percentage >= 100;
-  const hasPartialCompletion = actualCompletionStatus.completed > 0 && !isActuallyCompleted;
-
   return (
-    <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20">
-      <div className="flex items-center justify-between mb-8">
-        <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-          <CheckCircle className="w-6 h-6 text-purple-400" />
-          Translation Progress
-        </h3>
-        
-        <div className="flex items-center gap-3">
-          {isActuallyCompleted ? (
-            <motion.button
-              onClick={handleResetTranslation}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
-            </motion.button>
-          ) : (
-            <>
-              {!isTranslating ? (
-                <motion.button
-                  onClick={handleStartTranslation}
-                  className="bg-gradient-to-r from-green-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:shadow-lg transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Play className="w-4 h-4" />
-                  {actualCompletionStatus.completed > 0 ? 'Resume' : 'Start'} Translation
-                </motion.button>
-              ) : (
-                <motion.button
-                  onClick={handlePauseTranslation}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Pause className="w-4 h-4" />
-                  Pause
-                </motion.button>
-              )}
-            </>
+    <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <CardHeader>
+        <CardTitle className="text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {getStatusIcon()}
+            Translation Progress
+          </div>
+          <Badge className={`${
+            project.status === 'completed' ? 'bg-green-500/20 text-green-300' :
+            project.status === 'error' ? 'bg-red-500/20 text-red-300' :
+            'bg-blue-500/20 text-blue-300'
+          }`}>
+            {project.status}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Project Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="text-center p-3 bg-white/5 rounded-lg">
+            <div className="text-white/60">Total Pages</div>
+            <div className="text-lg font-semibold text-white">{project.totalChunks}</div>
+          </div>
+          <div className="text-center p-3 bg-white/5 rounded-lg">
+            <div className="text-white/60">Completed</div>
+            <div className="text-lg font-semibold text-white">{project.completedChunks}</div>
+          </div>
+          <div className="text-center p-3 bg-white/5 rounded-lg">
+            <div className="text-white/60">Languages</div>
+            <div className="text-lg font-semibold text-white">{project.targetLanguages.length}</div>
+          </div>
+          <div className="text-center p-3 bg-white/5 rounded-lg">
+            <div className="text-white/60">Word Count</div>
+            <div className="text-lg font-semibold text-white">
+              {project.originalContent?.split(/\s+/).length || 0}
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div>
+          <div className="flex justify-between text-sm text-white/80 mb-2">
+            <span>Overall Progress</span>
+            <span>{Math.round(progress)}%</span>
+          </div>
+          <Progress value={progress} className="h-3" />
+          {currentLanguage && (
+            <p className="text-xs text-white/60 mt-2">
+              Currently translating to: {currentLanguage}
+            </p>
           )}
         </div>
-      </div>
 
-      {/* Actual Progress Bar */}
-      <div className="mb-6">
-        <div className="flex justify-between text-white/80 mb-2">
-          <span>Actual Translation Progress</span>
-          <span>{Math.round(actualCompletionStatus.percentage)}%</span>
-        </div>
-        <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
-          <motion.div
-            className={`h-full rounded-full ${
-              isActuallyCompleted 
-                ? 'bg-gradient-to-r from-green-500 to-green-400' 
-                : 'bg-gradient-to-r from-purple-500 to-blue-500'
-            }`}
-            initial={{ width: 0 }}
-            animate={{ width: `${actualCompletionStatus.percentage}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          />
-        </div>
-      </div>
-
-      {/* Status Alert */}
-      {hasPartialCompletion && (
-        <div className="mb-6 bg-yellow-500/20 border border-yellow-500/30 rounded-2xl p-4">
-          <div className="flex items-center gap-3">
-            <Info className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-            <div>
-              <p className="text-yellow-200 font-medium">Partial Translation Detected</p>
-              <p className="text-yellow-200/80 text-sm">
-                {actualCompletionStatus.completed} of {actualCompletionStatus.total} chunks completed. 
-                Some chunks may have failed or been skipped during previous attempts.
-              </p>
+        {/* Stats during translation */}
+        {isTranslating && (
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="text-center p-2 bg-blue-500/20 rounded-lg border border-blue-500/30">
+              <div className="text-blue-300">Time Remaining</div>
+              <div className="text-white font-medium">{formatTime(estimatedTime)}</div>
+            </div>
+            <div className="text-center p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
+              <div className="text-purple-300">Tokens Used</div>
+              <div className="text-white font-medium">{tokensUsed.toLocaleString()}</div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-5 h-5 text-green-400" />
-            <span className="text-white/80 text-sm">Completed</span>
-          </div>
-          <p className="text-2xl font-bold text-white">
-            {actualCompletionStatus.completed}/{actualCompletionStatus.total}
-          </p>
-          <p className="text-white/60 text-xs">
-            {Math.round(actualCompletionStatus.percentage)}% actual
-          </p>
-        </div>
-
-        <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-5 h-5 text-blue-400" />
-            <span className="text-white/80 text-sm">Est. Time</span>
-          </div>
-          <p className="text-xl font-bold text-white">
-            {estimatedTime > 0 ? formatTime(estimatedTime) : '--'}
-          </p>
-        </div>
-
-        <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-5 h-5 text-yellow-400" />
-            <span className="text-white/80 text-sm">Languages</span>
-          </div>
-          <p className="text-2xl font-bold text-white">
-            {project.targetLanguages.length}
-          </p>
+        {/* Control Buttons */}
+        <div className="flex gap-3">
+          {!isTranslating ? (
+            <Button
+              onClick={startTranslation}
+              disabled={project.targetLanguages.length === 0}
+              className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              {progress > 0 ? 'Resume Translation' : 'Start Translation'}
+            </Button>
+          ) : (
+            <Button
+              onClick={pauseTranslation}
+              className="flex-1 bg-yellow-500 hover:bg-yellow-600"
+            >
+              <Pause className="w-4 h-4 mr-2" />
+              Pause Translation
+            </Button>
+          )}
+          
+          <Button
+            onClick={resetTranslation}
+            disabled={isTranslating}
+            variant="outline"
+            className="border-white/20 text-white hover:bg-white/10"
+          >
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Reset
+          </Button>
         </div>
 
-        <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-5 h-5 text-purple-400" />
-            <span className="text-white/80 text-sm">Tokens</span>
+        {project.targetLanguages.length === 0 && (
+          <div className="p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+            <p className="text-yellow-300 text-sm">
+              ⚠️ Please select target languages before starting translation
+            </p>
           </div>
-          <p className="text-xl font-bold text-white">
-            {tokensUsed.toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      {/* Current Status */}
-      {isTranslating && currentLanguage && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-2xl p-4"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-white font-medium">
-                Currently translating to {currentLanguage}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              <span className="text-white/80 text-sm">Processing...</span>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
