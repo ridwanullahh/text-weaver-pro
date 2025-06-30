@@ -32,28 +32,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
+    const initializeAuth = async () => {
       try {
-        const userData = wrappedSDK.getCurrentUser(token);
-        if (userData) {
-          setUser({
-            id: userData.id || userData.uid || '',
-            email: userData.email,
-            fullName: userData.fullName,
-            walletBalance: userData.walletBalance || 0,
-            isAdmin: userData.roles?.includes('admin') || false,
-            dailyTextTranslations: userData.dailyTextTranslations || 0,
-            lastResetDate: userData.lastResetDate || new Date().toDateString(),
-            roles: userData.roles || []
-          });
+        const token = localStorage.getItem('auth_token');
+        const userData = localStorage.getItem('current_user');
+        
+        if (token && userData) {
+          const parsedUser = JSON.parse(userData);
+          
+          // Validate token is still valid
+          try {
+            const currentUser = wrappedSDK.getCurrentUser(token);
+            if (currentUser) {
+              setUser({
+                id: currentUser.id || currentUser.uid || parsedUser.id,
+                email: currentUser.email || parsedUser.email,
+                fullName: currentUser.fullName || parsedUser.fullName,
+                walletBalance: currentUser.walletBalance || parsedUser.walletBalance || 0,
+                isAdmin: currentUser.roles?.includes('admin') || parsedUser.isAdmin || false,
+                dailyTextTranslations: currentUser.dailyTextTranslations || parsedUser.dailyTextTranslations || 0,
+                lastResetDate: currentUser.lastResetDate || parsedUser.lastResetDate || new Date().toDateString(),
+                roles: currentUser.roles || parsedUser.roles || []
+              });
+            } else {
+              // Token invalid, clear storage
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('current_user');
+            }
+          } catch (error) {
+            console.error('Token validation failed:', error);
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('current_user');
+          }
         }
       } catch (error) {
-        console.error('Failed to load user:', error);
+        console.error('Failed to initialize auth:', error);
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('current_user');
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -73,6 +94,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           lastResetDate: userData.lastResetDate || new Date().toDateString(),
           roles: userData.roles || []
         };
+        
+        // Persist user data
+        localStorage.setItem('current_user', JSON.stringify(userObj));
         setUser(userObj);
       }
     } catch (error) {
@@ -86,7 +110,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const token = await wrappedSDK.login(email, password);
       
       localStorage.setItem('auth_token', token);
-      setUser({
+      
+      const userObj = {
         id: newUser.id || newUser.uid || '',
         email: newUser.email,
         fullName: newUser.fullName,
@@ -95,7 +120,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dailyTextTranslations: 0,
         lastResetDate: new Date().toDateString(),
         roles: newUser.roles || []
-      });
+      };
+      
+      localStorage.setItem('current_user', JSON.stringify(userObj));
+      setUser(userObj);
     } catch (error) {
       throw error;
     }
@@ -124,7 +152,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         createdAt: new Date().toISOString()
       });
       
-      setUser(prev => prev ? { ...prev, walletBalance: updatedUser.walletBalance } : null);
+      const updatedUserObj = { ...user, walletBalance: updatedUser.walletBalance };
+      localStorage.setItem('current_user', JSON.stringify(updatedUserObj));
+      setUser(updatedUserObj);
     } catch (error) {
       console.error('Failed to update wallet:', error);
       throw error;
@@ -160,11 +190,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         lastResetDate: today
       });
       
-      setUser(prev => prev ? {
-        ...prev,
+      const updatedUserObj = {
+        ...user,
         dailyTextTranslations: updatedUser.dailyTextTranslations,
         lastResetDate: updatedUser.lastResetDate
-      } : null);
+      };
+      
+      localStorage.setItem('current_user', JSON.stringify(updatedUserObj));
+      setUser(updatedUserObj);
     } catch (error) {
       console.error('Failed to update daily translations:', error);
     }
