@@ -21,6 +21,10 @@ class PaystackService {
   constructor() {
     this.publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || '';
     this.secretKey = import.meta.env.VITE_PAYSTACK_SECRET_KEY || '';
+    
+    if (!this.publicKey || !this.secretKey) {
+      console.warn('Paystack keys not configured. Payment functionality will be limited.');
+    }
   }
 
   private getHeaders() {
@@ -31,50 +35,98 @@ class PaystackService {
   }
 
   async initializePayment(data: PaymentData): Promise<PaystackResponse> {
+    if (!this.secretKey) {
+      throw new Error('Paystack secret key not configured');
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}/transaction/initialize`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
           ...data,
-          amount: data.amount * 100, // Convert to kobo
+          amount: data.amount * 100, // Convert to kobo/cents
         }),
       });
 
-      return await response.json();
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Payment initialization failed');
+      }
+
+      return result;
     } catch (error) {
       console.error('Paystack initialization error:', error);
-      throw new Error('Payment initialization failed');
+      throw error;
     }
   }
 
   async verifyPayment(reference: string): Promise<PaystackResponse> {
+    if (!this.secretKey) {
+      throw new Error('Paystack secret key not configured');
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}/transaction/verify/${reference}`, {
         method: 'GET',
         headers: this.getHeaders(),
       });
 
-      return await response.json();
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Payment verification failed');
+      }
+
+      return result;
     } catch (error) {
       console.error('Paystack verification error:', error);
-      throw new Error('Payment verification failed');
+      throw error;
     }
   }
 
-  openPaymentModal(data: PaymentData, onSuccess: (response: any) => void, onClose: () => void) {
-    // @ts-ignore - Paystack is loaded via script
-    const handler = PaystackPop.setup({
-      key: this.publicKey,
-      email: data.email,
-      amount: data.amount * 100,
-      currency: data.currency || 'NGN',
-      metadata: data.metadata,
-      callback: onSuccess,
-      onClose: onClose,
-    });
+  async openPaymentModal(
+    data: PaymentData, 
+    onSuccess: (response: any) => void, 
+    onClose: () => void
+  ): Promise<void> {
+    if (!this.publicKey) {
+      throw new Error('Paystack public key not configured');
+    }
 
-    handler.openIframe();
+    // Check if Paystack script is loaded
+    if (typeof window === 'undefined' || !(window as any).PaystackPop) {
+      throw new Error('Paystack script not loaded. Please include the Paystack script in your HTML.');
+    }
+
+    try {
+      // @ts-ignore - Paystack is loaded via script
+      const handler = PaystackPop.setup({
+        key: this.publicKey,
+        email: data.email,
+        amount: data.amount * 100, // Convert to kobo/cents
+        currency: data.currency || 'NGN',
+        metadata: data.metadata,
+        callback: (response: any) => {
+          console.log('Payment successful:', response);
+          onSuccess(response);
+        },
+        onClose: () => {
+          console.log('Payment modal closed');
+          onClose();
+        },
+      });
+
+      handler.openIframe();
+    } catch (error) {
+      console.error('Failed to open payment modal:', error);
+      throw error;
+    }
+  }
+
+  isConfigured(): boolean {
+    return !!(this.publicKey && this.secretKey);
   }
 }
 
