@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import WalletManager from '../components/wallet/WalletManager';
 import UserDashboard from '../components/dashboard/UserDashboard';
 import UserSettings from '../components/settings/UserSettings';
+import MobileNav from '../components/mobile/MobileNav';
 import { LogOut, Settings, Upload, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -32,11 +33,18 @@ const Index = () => {
         {/* Header with user info */}
         <div className="bg-black/20 backdrop-blur-md border-b border-white/10">
           <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-white">TextWeaver Pro Dashboard</h1>
-              <p className="text-white/60 text-sm">Welcome back, {user?.fullName || user?.email}</p>
+            <div className="flex items-center gap-2">
+              <div className="text-xl md:text-2xl">🌐</div>
+              <div>
+                <h1 className="text-lg md:text-2xl font-bold text-white">TextWeaver Pro Dashboard</h1>
+                <p className="text-white/60 text-xs md:text-sm hidden sm:block">
+                  Welcome back, {user?.fullName || user?.email}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-4">
               <div className="text-right">
                 <p className="text-white text-sm">Wallet Balance</p>
                 <p className="text-white font-bold">${user?.walletBalance.toFixed(2) || '0.00'}</p>
@@ -59,22 +67,25 @@ const Index = () => {
                 Logout
               </Button>
             </div>
+            
+            {/* Mobile Navigation */}
+            <MobileNav />
           </div>
         </div>
         
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-4 md:py-8">
           {/* Quick Actions */}
-          <div className="mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          <div className="mb-6 md:mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-2xl mx-auto">
               <Link to="/app">
                 <motion.div
-                  className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-8 text-center hover:bg-white/15 transition-all duration-300 cursor-pointer"
+                  className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-6 md:p-8 text-center hover:bg-white/15 transition-all duration-300 cursor-pointer"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <div className="text-6xl mb-4">📤</div>
-                  <h3 className="text-2xl font-bold text-white mb-2">Translation App</h3>
-                  <p className="text-white/60">
+                  <div className="text-4xl md:text-6xl mb-4">📤</div>
+                  <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Translation App</h3>
+                  <p className="text-white/60 text-sm md:text-base">
                     Upload documents and start translating
                   </p>
                 </motion.div>
@@ -82,13 +93,13 @@ const Index = () => {
               
               <motion.div
                 onClick={() => setActiveTab('wallet')}
-                className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-8 text-center hover:bg-white/15 transition-all duration-300 cursor-pointer"
+                className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-6 md:p-8 text-center hover:bg-white/15 transition-all duration-300 cursor-pointer"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="text-6xl mb-4">💰</div>
-                <h3 className="text-2xl font-bold text-white mb-2">Manage Wallet</h3>
-                <p className="text-white/60">
+                <div className="text-4xl md:text-6xl mb-4">💰</div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Manage Wallet</h3>
+                <p className="text-white/60 text-sm md:text-base">
                   Fund your account and view transactions
                 </p>
               </motion.div>
@@ -96,14 +107,14 @@ const Index = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex justify-center mb-8 overflow-x-auto">
+          <div className="flex justify-center mb-6 md:mb-8 overflow-x-auto">
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2 border border-white/20 min-w-max">
-              <div className="flex space-x-2">
+              <div className="flex space-x-1 md:space-x-2">
                 {tabs.map((tab) => (
                   <motion.button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 md:px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
+                    className={`px-3 md:px-6 py-2 md:py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap text-sm md:text-base ${
                       activeTab === tab.id
                         ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
                         : 'text-white/70 hover:text-white hover:bg-white/10'
@@ -111,7 +122,7 @@ const Index = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <span className="text-lg">{tab.icon}</span>
+                    <span className="text-sm md:text-lg">{tab.icon}</span>
                     <span className="hidden sm:inline">{tab.label}</span>
                   </motion.button>
                 ))}
@@ -125,6 +136,7 @@ const Index = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
+            className="px-4 md:px-0"
           >
             {activeTab === 'dashboard' && (
               <UserDashboard />
@@ -136,9 +148,9 @@ const Index = () => {
 
             {activeTab === 'wallet' && (
               <div>
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-white mb-4">💰 Wallet Management</h2>
-                  <p className="text-white/60 text-lg">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">💰 Wallet Management</h2>
+                  <p className="text-white/60 text-sm md:text-lg">
                     Manage your translation credits
                   </p>
                 </div>

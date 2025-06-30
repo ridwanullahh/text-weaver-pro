@@ -45,18 +45,35 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
+const AuthRedirect = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin text-6xl mb-4">⚙️</div>
+          <h2 className="text-2xl font-bold text-white">Loading...</h2>
+        </div>
+      </div>
+    );
+  }
+  
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />;
+};
+
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="App">
+        <div className="App min-h-screen">
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Auth />} />
+            <Route path="/login" element={<AuthRedirect />} />
             <Route path="/auth" element={<Navigate to="/login" replace />} />
-            <Route path="/register" element={<Auth />} />
-            <Route path="/signup" element={<Auth />} />
+            <Route path="/register" element={<AuthRedirect />} />
+            <Route path="/signup" element={<AuthRedirect />} />
             <Route path="/features" element={<Features />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/blog" element={<Blog />} />

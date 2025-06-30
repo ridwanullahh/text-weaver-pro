@@ -70,26 +70,33 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   });
 
   const processFile = async (fileData: UploadedFile) => {
+    console.log(`Starting file processing for: ${fileData.file.name}`);
+    
     setUploadedFiles(prev => prev.map(f => 
       f.id === fileData.id 
-        ? { ...f, status: 'processing', progress: 20 }
+        ? { ...f, status: 'processing', progress: 10 }
         : f
     ));
 
     try {
-      // Simulate progress updates
-      const progressUpdates = [20, 40, 60, 80];
-      for (const progress of progressUpdates) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // Simulate progress updates during extraction
+      const progressInterval = setInterval(() => {
         setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { ...f, progress } : f
+          f.id === fileData.id && f.progress < 90
+            ? { ...f, progress: Math.min(f.progress + 10, 90) }
+            : f
         ));
-      }
+      }, 500);
 
       console.log(`Processing file: ${fileData.file.name} with ${extractionMethod} method`);
       
       // Extract content using selected method
       const extractedData = await fileExtractor.extractFromFile(fileData.file, extractionMethod);
+      
+      // Clear the progress interval
+      clearInterval(progressInterval);
+      
+      console.log(`Extraction completed for ${fileData.file.name}:`, extractedData.text?.length, 'characters');
       
       setUploadedFiles(prev => prev.map(f => 
         f.id === fileData.id 
@@ -121,17 +128,30 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   };
 
   const processAllFiles = async () => {
+    if (isProcessing) return;
+    
     setIsProcessing(true);
     const pendingFiles = uploadedFiles.filter(f => f.status === 'pending');
     
+    if (pendingFiles.length === 0) {
+      setIsProcessing(false);
+      return;
+    }
+    
+    console.log(`Processing ${pendingFiles.length} files...`);
+    
     try {
+      // Process files sequentially to avoid overwhelming the system
       for (const fileData of pendingFiles) {
         await processFile(fileData);
+        // Small delay between files
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // Create project from completed files
+      // Check if we have completed files to create a project
       const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
       if (completedFiles.length > 0) {
+        console.log('Creating project from completed files...');
         await createProject(completedFiles);
       }
     } catch (error) {
@@ -143,10 +163,16 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
 
   const createProject = async (completedFiles: UploadedFile[]) => {
     try {
+      console.log('Creating project from', completedFiles.length, 'files');
+      
       const combinedContent = completedFiles
         .map(f => f.extractedContent)
         .filter(Boolean)
         .join('\n\n---\n\n');
+
+      if (!combinedContent.trim()) {
+        throw new Error('No content extracted from files');
+      }
 
       const totalWords = combinedContent.split(/\s+/).filter(word => word.length > 0).length;
       
@@ -181,7 +207,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         }
       };
 
+      console.log('Saving project to database:', project.name);
       await translationDB.projects.add(project);
+      
+      console.log('Project created successfully, calling onProjectCreate');
       onProjectCreate(project);
       
       // Clear uploaded files after project creation
@@ -232,10 +261,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8 px-4 md:px-0">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-white mb-4">📤 Upload Documents</h2>
-        <p className="text-white/60 text-lg">
+        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 md:mb-4">📤 Upload Documents</h2>
+        <p className="text-white/60 text-sm md:text-lg">
           Upload your documents and select your preferred extraction method
         </p>
       </div>
@@ -244,7 +273,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       <ExtractionMethodSelector 
         method={extractionMethod}
         onMethodChange={setExtractionMethod}
-        disabled={uploadedFiles.some(f => f.status === 'processing')}
+        disabled={uploadedFiles.some(f => f.status === 'processing') || isProcessing}
       />
 
       {/* Upload Area */}
@@ -254,24 +283,24 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         transition={{ duration: 0.5 }}
       >
         <Card className="bg-white/10 backdrop-blur-md border-white/20">
-          <CardContent className="p-8">
+          <CardContent className="p-4 md:p-8">
             <div
               {...getRootProps()}
-              className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 ${
+              className={`border-2 border-dashed rounded-2xl p-6 md:p-12 text-center cursor-pointer transition-all duration-300 ${
                 isDragActive
                   ? 'border-purple-400 bg-purple-400/10'
                   : 'border-white/30 hover:border-purple-400/50 hover:bg-white/5'
               }`}
             >
               <input {...getInputProps()} />
-              <Upload className="w-16 h-16 text-white/60 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <Upload className="w-12 h-12 md:w-16 md:h-16 text-white/60 mx-auto mb-4" />
+              <h3 className="text-lg md:text-xl font-semibold text-white mb-2">
                 {isDragActive ? 'Drop files here' : 'Drag & drop files or click to browse'}
               </h3>
-              <p className="text-white/60 mb-4">
+              <p className="text-white/60 mb-4 text-sm md:text-base">
                 Supports PDF, DOCX, TXT, RTF, CSV, XLSX, HTML, XML, JSON, EPUB
               </p>
-              <p className="text-white/40 text-sm">
+              <p className="text-white/40 text-xs md:text-sm">
                 Maximum file size: 50MB per file
               </p>
             </div>
@@ -283,14 +312,14 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       {uploadedFiles.length > 0 && (
         <Card className="bg-white/10 backdrop-blur-md border-white/20">
           <CardHeader>
-            <CardTitle className="text-white flex items-center justify-between">
-              Uploaded Files ({uploadedFiles.length})
+            <CardTitle className="text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <span>Uploaded Files ({uploadedFiles.length})</span>
               <div className="flex gap-2">
                 {uploadedFiles.some(f => f.status === 'pending') && (
                   <Button 
                     onClick={processAllFiles}
                     disabled={isProcessing}
-                    className="bg-gradient-to-r from-purple-500 to-blue-500"
+                    className="bg-gradient-to-r from-purple-500 to-blue-500 w-full sm:w-auto"
                   >
                     {isProcessing ? 'Processing...' : 'Process All Files'}
                   </Button>
@@ -302,17 +331,17 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
             <div className="space-y-4">
               {uploadedFiles.map((fileData) => (
                 <div key={fileData.id} className="bg-white/5 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       {getStatusIcon(fileData.status)}
-                      <div>
-                        <p className="text-white font-medium">{fileData.file.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-medium truncate">{fileData.file.name}</p>
                         <p className="text-white/60 text-sm">
                           {(fileData.file.size / 1024 / 1024).toFixed(1)} MB
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="outline" className={`border-white/20 ${getStatusColor(fileData.status)}`}>
                         {fileData.status}
                       </Badge>

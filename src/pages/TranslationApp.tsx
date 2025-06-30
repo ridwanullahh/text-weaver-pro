@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,6 +10,7 @@ import ExportPanel from '../components/ExportPanel';
 import TranslationAnalytics from '../components/TranslationAnalytics';
 import TranslationQuality from '../components/TranslationQuality';
 import LiveTranslationViewer from '../components/LiveTranslationViewer';
+import MobileNav from '../components/mobile/MobileNav';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
 import { LogOut, Settings, Home } from 'lucide-react';
@@ -64,11 +64,11 @@ const TranslationApp = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Something went wrong</h2>
-          <p className="text-white/60 mb-6">{error}</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
+        <div className="text-center max-w-md mx-auto">
+          <div className="text-4xl md:text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-4">Something went wrong</h2>
+          <p className="text-white/60 mb-6 text-sm md:text-base">{error}</p>
           <button 
             onClick={() => {
               setError(null);
@@ -85,11 +85,11 @@ const TranslationApp = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin text-6xl mb-4">⚙️</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Loading TextWeaver Pro</h2>
-          <p className="text-white/60">Initializing your translation workspace...</p>
+          <div className="animate-spin text-4xl md:text-6xl mb-4">⚙️</div>
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-4">Loading TextWeaver Pro</h2>
+          <p className="text-white/60 text-sm md:text-base">Initializing your translation workspace...</p>
         </div>
       </div>
     );
@@ -108,11 +108,16 @@ const TranslationApp = () => {
         {/* Header */}
         <div className="bg-black/20 backdrop-blur-md border-b border-white/10">
           <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-white">TextWeaver Pro</h1>
-              <p className="text-white/60 text-sm">Professional Document Translation</p>
+            <div className="flex items-center gap-2">
+              <div className="text-xl md:text-2xl">🌐</div>
+              <div>
+                <h1 className="text-lg md:text-2xl font-bold text-white">TextWeaver Pro</h1>
+                <p className="text-white/60 text-xs md:text-sm hidden sm:block">Professional Document Translation</p>
+              </div>
             </div>
-            <div className="flex items-center gap-4">
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-4">
               <div className="text-right">
                 <p className="text-white text-sm">Wallet Balance</p>
                 <p className="text-white font-bold">${user?.walletBalance.toFixed(2) || '0.00'}</p>
@@ -141,19 +146,22 @@ const TranslationApp = () => {
                 Logout
               </Button>
             </div>
+            
+            {/* Mobile Navigation */}
+            <MobileNav />
           </div>
         </div>
         
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-4 md:py-8">
           {/* Navigation Tabs */}
-          <div className="flex justify-center mb-8 overflow-x-auto">
+          <div className="flex justify-center mb-6 md:mb-8 overflow-x-auto">
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2 border border-white/20 min-w-max">
-              <div className="flex space-x-2">
+              <div className="flex space-x-1 md:space-x-2">
                 {tabs.map((tab) => (
                   <motion.button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 md:px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
+                    className={`px-3 md:px-6 py-2 md:py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap text-sm md:text-base ${
                       activeTab === tab.id
                         ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
                         : 'text-white/70 hover:text-white hover:bg-white/10'
@@ -161,7 +169,7 @@ const TranslationApp = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <span className="text-lg">{tab.icon}</span>
+                    <span className="text-sm md:text-lg">{tab.icon}</span>
                     <span className="hidden sm:inline">{tab.label}</span>
                   </motion.button>
                 ))}
@@ -189,7 +197,7 @@ const TranslationApp = () => {
             )}
             
             {activeTab === 'translate' && currentProject && (
-              <div className="space-y-8">
+              <div className="space-y-6 md:space-y-8 px-4 md:px-0">
                 <LanguageSelector 
                   project={currentProject}
                   onUpdate={setCurrentProject}
@@ -200,15 +208,15 @@ const TranslationApp = () => {
             )}
 
             {activeTab === 'translate' && !currentProject && (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">🔄</div>
-                <h3 className="text-2xl font-bold text-white mb-4">No Project Selected</h3>
-                <p className="text-white/60 text-lg mb-8">
+              <div className="text-center py-12 md:py-16 px-4">
+                <div className="text-4xl md:text-6xl mb-4">🔄</div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-4">No Project Selected</h3>
+                <p className="text-white/60 text-sm md:text-lg mb-6 md:mb-8 max-w-md mx-auto">
                   Select a project from the Projects tab or create a new one
                 </p>
                 <motion.button
                   onClick={() => setActiveTab('projects')}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 md:px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -218,10 +226,10 @@ const TranslationApp = () => {
             )}
 
             {activeTab === 'live' && currentProject && (
-              <div>
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-white mb-4">👁️ Live Translation View</h2>
-                  <p className="text-white/60 text-lg">
+              <div className="px-4 md:px-0">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">👁️ Live Translation View</h2>
+                  <p className="text-white/60 text-sm md:text-lg">
                     Watch your translation progress in real-time
                   </p>
                 </div>
@@ -233,15 +241,15 @@ const TranslationApp = () => {
             )}
 
             {activeTab === 'live' && !currentProject && (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">👁️</div>
-                <h3 className="text-2xl font-bold text-white mb-4">No Project Selected</h3>
-                <p className="text-white/60 text-lg mb-8">
+              <div className="text-center py-12 md:py-16 px-4">
+                <div className="text-4xl md:text-6xl mb-4">👁️</div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-4">No Project Selected</h3>
+                <p className="text-white/60 text-sm md:text-lg mb-6 md:mb-8 max-w-md mx-auto">
                   Select a project to view live translation progress
                 </p>
                 <motion.button
                   onClick={() => setActiveTab('projects')}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 md:px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -251,10 +259,10 @@ const TranslationApp = () => {
             )}
 
             {activeTab === 'analytics' && (
-              <div>
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-white mb-4">📊 Translation Analytics</h2>
-                  <p className="text-white/60 text-lg">
+              <div className="px-4 md:px-0">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">📊 Translation Analytics</h2>
+                  <p className="text-white/60 text-sm md:text-lg">
                     Comprehensive insights into your translation projects
                   </p>
                 </div>
@@ -263,10 +271,10 @@ const TranslationApp = () => {
             )}
 
             {activeTab === 'quality' && currentProject && (
-              <div>
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-white mb-4">⭐ Quality Assessment</h2>
-                  <p className="text-white/60 text-lg">
+              <div className="px-4 md:px-0">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">⭐ Quality Assessment</h2>
+                  <p className="text-white/60 text-sm md:text-lg">
                     Detailed quality analysis for {currentProject.name}
                   </p>
                 </div>
@@ -275,15 +283,15 @@ const TranslationApp = () => {
             )}
 
             {activeTab === 'quality' && !currentProject && (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">⭐</div>
-                <h3 className="text-2xl font-bold text-white mb-4">No Project Selected</h3>
-                <p className="text-white/60 text-lg mb-8">
+              <div className="text-center py-12 md:py-16 px-4">
+                <div className="text-4xl md:text-6xl mb-4">⭐</div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-4">No Project Selected</h3>
+                <p className="text-white/60 text-sm md:text-lg mb-6 md:mb-8 max-w-md mx-auto">
                   Select a project to view quality assessment
                 </p>
                 <motion.button
                   onClick={() => setActiveTab('projects')}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 md:px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
