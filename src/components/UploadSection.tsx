@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
@@ -15,7 +14,8 @@ import {
   X,
   Eye,
   Download,
-  Loader
+  Loader,
+  Info
 } from 'lucide-react';
 import { fileExtractor } from '../services/fileExtractor';
 import { translationDB } from '../utils/database';
@@ -31,7 +31,14 @@ interface UploadedFile {
   status: 'pending' | 'processing' | 'completed' | 'error';
   progress: number;
   extractedContent?: string;
-  metadata?: any;
+  metadata?: {
+    title?: string;
+    author?: string;
+    pages?: number;
+    wordCount?: number;
+    fileSize?: string;
+    lastModified?: Date;
+  };
   error?: string;
 }
 
@@ -39,6 +46,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractionMethod, setExtractionMethod] = useState<'ai' | 'traditional'>('ai');
+  const [showPreview, setShowPreview] = useState<string | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map(file => ({
@@ -65,12 +73,12 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       'application/json': ['.json'],
       'application/epub+zip': ['.epub']
     },
-    maxSize: 50 * 1024 * 1024, // 50MB
+    maxSize: 50 * 1024 * 1024,
     multiple: true
   });
 
   const processFile = async (fileData: UploadedFile) => {
-    console.log(`Starting file processing for: ${fileData.file.name}`);
+    console.log(`Starting file processing for: ${fileData.file.name} with ${extractionMethod} method`);
     
     setUploadedFiles(prev => prev.map(f => 
       f.id === fileData.id 
@@ -79,24 +87,22 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     ));
 
     try {
-      // Simulate progress updates during extraction
       const progressInterval = setInterval(() => {
         setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id && f.progress < 90
-            ? { ...f, progress: Math.min(f.progress + 10, 90) }
+          f.id === fileData.id && f.progress < 90 && f.status === 'processing'
+            ? { ...f, progress: Math.min(f.progress + 15, 90) }
             : f
         ));
-      }, 500);
+      }, 1000);
 
-      console.log(`Processing file: ${fileData.file.name} with ${extractionMethod} method`);
-      
-      // Extract content using selected method
       const extractedData = await fileExtractor.extractFromFile(fileData.file, extractionMethod);
       
-      // Clear the progress interval
       clearInterval(progressInterval);
       
-      console.log(`Extraction completed for ${fileData.file.name}:`, extractedData.text?.length, 'characters');
+      console.log(`Extraction completed for ${fileData.file.name}:`, {
+        textLength: extractedData.text?.length,
+        metadata: extractedData.metadata
+      });
       
       setUploadedFiles(prev => prev.map(f => 
         f.id === fileData.id 
@@ -138,17 +144,14 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       return;
     }
     
-    console.log(`Processing ${pendingFiles.length} files...`);
+    console.log(`Processing ${pendingFiles.length} files with ${extractionMethod} method...`);
     
     try {
-      // Process files sequentially to avoid overwhelming the system
       for (const fileData of pendingFiles) {
         await processFile(fileData);
-        // Small delay between files
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
-      // Check if we have completed files to create a project
       const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
       if (completedFiles.length > 0) {
         console.log('Creating project from completed files...');
@@ -175,8 +178,8 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       }
 
       const totalWords = combinedContent.split(/\s+/).filter(word => word.length > 0).length;
+      const totalPages = completedFiles.reduce((sum, f) => sum + (f.metadata?.pages || 1), 0);
       
-      // Determine file type based on the first uploaded file
       const firstFile = completedFiles[0];
       let fileType: 'text' | 'pdf' | 'docx' | 'epub' = 'text';
       if (firstFile.file.type === 'application/pdf') fileType = 'pdf';
@@ -192,7 +195,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         targetLanguages: [],
         originalContent: combinedContent,
         fileType,
-        totalChunks: 1,
+        totalChunks: Math.ceil(totalWords / 1000),
         completedChunks: 0,
         status: 'pending',
         createdAt: new Date(),
@@ -213,7 +216,6 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       console.log('Project created successfully, calling onProjectCreate');
       onProjectCreate(project);
       
-      // Clear uploaded files after project creation
       setUploadedFiles([]);
     } catch (error) {
       console.error('Error creating project:', error);
@@ -269,14 +271,12 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         </p>
       </div>
 
-      {/* Extraction Method Selector */}
       <ExtractionMethodSelector 
         method={extractionMethod}
         onMethodChange={setExtractionMethod}
         disabled={uploadedFiles.some(f => f.status === 'processing') || isProcessing}
       />
 
-      {/* Upload Area */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -308,7 +308,6 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         </Card>
       </motion.div>
 
-      {/* Uploaded Files List */}
       {uploadedFiles.length > 0 && (
         <Card className="bg-white/10 backdrop-blur-md border-white/20">
           <CardHeader>
@@ -322,6 +321,17 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                     className="bg-gradient-to-r from-purple-500 to-blue-500 w-full sm:w-auto"
                   >
                     {isProcessing ? 'Processing...' : 'Process All Files'}
+                  </Button>
+                )}
+                {uploadedFiles.some(f => f.status === 'completed') && (
+                  <Button 
+                    onClick={() => {
+                      const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
+                      createProject(completedFiles);
+                    }}
+                    className="bg-gradient-to-r from-green-500 to-blue-500 w-full sm:w-auto"
+                  >
+                    Create Project
                   </Button>
                 )}
               </div>
@@ -345,6 +355,16 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                       <Badge variant="outline" className={`border-white/20 ${getStatusColor(fileData.status)}`}>
                         {fileData.status}
                       </Badge>
+                      {fileData.extractedContent && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowPreview(showPreview === fileData.id ? null : fileData.id)}
+                          className="border-white/20 text-white hover:bg-white/10"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      )}
                       {fileData.status === 'error' && (
                         <Button
                           size="sm"
@@ -374,14 +394,40 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                     <p className="text-red-400 text-sm mb-2">{fileData.error}</p>
                   )}
                   
-                  {fileData.extractedContent && (
+                  {fileData.metadata && fileData.status === 'completed' && (
+                    <div className="mt-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Info className="w-4 h-4 text-blue-400" />
+                        <span className="text-white font-medium">Extraction Results</span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <span className="text-white/60">Pages:</span>
+                          <span className="text-white ml-2">{fileData.metadata.pages || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/60">Words:</span>
+                          <span className="text-white ml-2">{fileData.metadata.wordCount?.toLocaleString() || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/60">Size:</span>
+                          <span className="text-white ml-2">{fileData.metadata.fileSize}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/60">Method:</span>
+                          <span className="text-white ml-2 capitalize">{extractionMethod}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {showPreview === fileData.id && fileData.extractedContent && (
                     <div className="mt-3 p-3 bg-white/5 rounded-lg">
-                      <p className="text-white/80 text-sm mb-2">
-                        Content Preview ({fileData.metadata?.wordCount || 0} words):
-                      </p>
-                      <p className="text-white/60 text-sm line-clamp-3">
-                        {fileData.extractedContent.substring(0, 200)}...
-                      </p>
+                      <p className="text-white/80 text-sm mb-2">Content Preview:</p>
+                      <div className="max-h-32 overflow-y-auto text-white/60 text-sm bg-black/20 p-2 rounded border">
+                        {fileData.extractedContent.substring(0, 500)}
+                        {fileData.extractedContent.length > 500 && '...'}
+                      </div>
                     </div>
                   )}
                 </div>

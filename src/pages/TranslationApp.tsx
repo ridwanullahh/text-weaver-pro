@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +11,7 @@ import ExportPanel from '../components/ExportPanel';
 import TranslationAnalytics from '../components/TranslationAnalytics';
 import TranslationQuality from '../components/TranslationQuality';
 import LiveTranslationViewer from '../components/LiveTranslationViewer';
+import AIProviderSettings from '../components/settings/AIProviderSettings';
 import MobileNav from '../components/mobile/MobileNav';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
@@ -59,7 +61,8 @@ const TranslationApp = () => {
     { id: 'translate', label: 'Translate', icon: '🔄' },
     { id: 'live', label: 'Live View', icon: '👁️' },
     { id: 'analytics', label: 'Analytics', icon: '📈' },
-    { id: 'quality', label: 'Quality', icon: '⭐' }
+    { id: 'quality', label: 'Quality', icon: '⭐' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' }
   ];
 
   if (error) {
@@ -297,6 +300,20 @@ const TranslationApp = () => {
                 >
                   Select Project
                 </motion.button>
+              </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <div className="px-4 md:px-0">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">⚙️ AI Provider Settings</h2>
+                  <p className="text-white/60 text-sm md:text-lg">
+                    Configure your AI provider for translation services
+                  </p>
+                </div>
+                <div className="max-w-2xl mx-auto">
+                  <AIProviderSettings />
+                </div>
               </div>
             )}
           </motion.div>
