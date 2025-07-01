@@ -1,13 +1,15 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface User {
   id: string;
   email: string;
   name: string;
+  fullName: string;
   walletBalance: number;
   plan: 'free' | 'basic' | 'pro' | 'enterprise';
   roles?: string[];
+  isAdmin?: boolean;
+  dailyTextTranslations?: number;
 }
 
 interface AuthContextType {
@@ -15,9 +17,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, additionalData?: { fullName?: string; inviteCode?: string }) => Promise<void>;
   logout: () => void;
   updateUser: (updates: Partial<User>) => void;
+  updateWallet: (amount: number) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -99,9 +102,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         id: '1',
         email,
         name: email.split('@')[0],
+        fullName: email.split('@')[0], // Default fullName
         walletBalance: 10.00, // Starting balance
         plan: 'free',
-        roles: email.includes('admin') ? ['admin'] : []
+        roles: email.includes('admin') ? ['admin'] : [],
+        isAdmin: email.includes('admin'),
+        dailyTextTranslations: 0
       };
       
       setUser(userData);
@@ -116,7 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (email: string, password: string, name: string): Promise<void> => {
+  const register = async (email: string, password: string, additionalData?: { fullName?: string; inviteCode?: string }): Promise<void> => {
     setIsLoading(true);
     try {
       // Simulate API call
@@ -125,10 +131,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData: User = {
         id: Date.now().toString(),
         email,
-        name,
+        name: additionalData?.fullName || email.split('@')[0],
+        fullName: additionalData?.fullName || email.split('@')[0],
         walletBalance: 5.00, // Welcome bonus
         plan: 'free',
-        roles: []
+        roles: [],
+        isAdmin: false,
+        dailyTextTranslations: 0
       };
       
       setUser(userData);
@@ -158,6 +167,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateWallet = async (amount: number): Promise<void> => {
+    if (!user) return;
+    
+    try {
+      const updatedUser = {
+        ...user,
+        walletBalance: user.walletBalance + amount
+      };
+      
+      setUser(updatedUser);
+      saveUserSession(updatedUser);
+      
+      console.log(`Wallet updated: +$${amount.toFixed(2)}, New balance: $${updatedUser.walletBalance.toFixed(2)}`);
+    } catch (error) {
+      console.error('Failed to update wallet:', error);
+      throw error;
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
@@ -165,7 +193,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
-    updateUser
+    updateUser,
+    updateWallet
   };
 
   return (
