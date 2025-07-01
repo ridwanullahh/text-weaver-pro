@@ -10,7 +10,7 @@ import { aiProviderService } from '../../services/aiProviderService';
 import { Bot, Key, CheckCircle, AlertCircle, Settings } from 'lucide-react';
 
 const AIProviderSettings: React.FC = () => {
-  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'gemini'>('openai');
+  const [provider, setProvider] = useState<'openai' | 'anthropic' | 'gemini' | 'chutes' | 'custom'>('openai');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -20,7 +20,9 @@ const AIProviderSettings: React.FC = () => {
   const providerModels = {
     openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
     anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-    gemini: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro']
+    gemini: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
+    chutes: ['deepseek-ai/DeepSeek-V3-0324', 'meta-llama/Llama-3.3-70B-Instruct'],
+    custom: ['custom-model']
   };
 
   useEffect(() => {
@@ -30,9 +32,9 @@ const AIProviderSettings: React.FC = () => {
   const loadCurrentSettings = () => {
     const currentProvider = aiProviderService.getProvider();
     if (currentProvider) {
-      setProvider(currentProvider.provider);
+      setProvider(currentProvider.provider as any);
       setApiKey(currentProvider.apiKey);
-      setModel(currentProvider.model);
+      setModel(currentProvider.model || '');
       setIsConnected(true);
     }
   };
@@ -42,17 +44,18 @@ const AIProviderSettings: React.FC = () => {
     setError('');
 
     try {
-      await aiProviderService.setProvider({
+      aiProviderService.setProvider({
         provider,
         apiKey,
         model: model || providerModels[provider][0]
       });
 
-      const testResult = await aiProviderService.testConnection();
-      if (testResult.success) {
+      // Simple test by trying to detect language of a short text
+      const testResult = await aiProviderService.detectLanguage('Hello world');
+      if (testResult) {
         setIsConnected(true);
       } else {
-        setError(testResult.error || 'Connection test failed');
+        setError('Connection test failed');
         setIsConnected(false);
       }
     } catch (err) {
@@ -107,6 +110,18 @@ const AIProviderSettings: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Bot className="w-4 h-4" />
                   Google (Gemini)
+                </div>
+              </SelectItem>
+              <SelectItem value="chutes">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4" />
+                  Chutes AI
+                </div>
+              </SelectItem>
+              <SelectItem value="custom">
+                <div className="flex items-center gap-2">
+                  <Bot className="w-4 h-4" />
+                  Custom OpenAI-Compatible
                 </div>
               </SelectItem>
             </SelectContent>
@@ -188,6 +203,12 @@ const AIProviderSettings: React.FC = () => {
             )}
             {provider === 'gemini' && (
               <p>Get your Gemini API key from: <span className="font-mono">makersuite.google.com/app/apikey</span></p>
+            )}
+            {provider === 'chutes' && (
+              <p>Get your Chutes AI API key from: <span className="font-mono">chutes.ai</span></p>
+            )}
+            {provider === 'custom' && (
+              <p>Enter your custom OpenAI-compatible API endpoint and key</p>
             )}
           </div>
         </div>

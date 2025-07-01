@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -34,10 +33,17 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ project }) => {
     setExportProgress(0);
 
     try {
+      const formatConfig = {
+        type: exportFormat,
+        name: exportFormat.toUpperCase(),
+        icon: 'file',
+        description: `Export as ${exportFormat.toUpperCase()}`
+      };
+
       await exportService.exportProject(
         project,
         selectedLanguages,
-        { type: exportFormat },
+        formatConfig,
         {
           onProgress: (progress) => setExportProgress(progress)
         }
