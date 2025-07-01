@@ -24,8 +24,8 @@ class GeminiPdfExtractor {
     if (provider && provider.provider === 'gemini' && provider.model) {
       return provider.model;
     }
-    // Default to Gemini 1.5 Flash for extraction
-    return 'gemini-1.5-flash';
+    // Default to Gemini 2.5 Flash for extraction
+    return 'gemini-2.5-flash';
   }
 
   private async convertPdfPageToBase64(file: File, pageNumber: number): Promise<string> {
