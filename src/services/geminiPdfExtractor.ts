@@ -1,4 +1,3 @@
-
 import { aiProviderService } from './aiProviderService';
 
 interface ExtractedPageContent {
@@ -17,14 +16,34 @@ interface GeminiPdfExtractionResult {
   };
 }
 
+interface ExtractionSettings {
+  ignoreHeaders: boolean;
+  ignoreFooters: boolean;
+  ignorePageNumbers: boolean;
+  ignoreFootnotes: boolean;
+  maintainFormatting: boolean;
+  separatePages: boolean;
+}
+
 class GeminiPdfExtractor {
+  private extractionSettings: ExtractionSettings = {
+    ignoreHeaders: true,
+    ignoreFooters: true,
+    ignorePageNumbers: true,
+    ignoreFootnotes: false,
+    maintainFormatting: true,
+    separatePages: true
+  };
+
+  setExtractionSettings(settings: ExtractionSettings) {
+    this.extractionSettings = settings;
+  }
+
   private getGeminiModel(): string {
-    // Check if user has configured a specific Gemini model
     const provider = aiProviderService.getProvider();
     if (provider && provider.provider === 'gemini' && provider.model) {
       return provider.model;
     }
-    // Default to Gemini 2.5 Flash for extraction
     return 'gemini-2.5-flash';
   }
 
@@ -94,22 +113,19 @@ class GeminiPdfExtractor {
     }
   }
 
-  async extractWithGemini(file: File): Promise<GeminiPdfExtractionResult> {
+  async extractWithGemini(file: File, onProgress?: (page: number, total: number, stage: string) => void): Promise<GeminiPdfExtractionResult> {
     const startTime = Date.now();
     const extractedPages: ExtractedPageContent[] = [];
     
-    console.log('Starting Gemini-powered PDF extraction...');
+    console.log('Starting enhanced Gemini-powered PDF extraction...');
     
     try {
-      // Validate file first
       if (file.size === 0) {
         throw new Error('PDF file is empty (0 bytes)');
       }
       
-      // First, get the total number of pages
       const pdfjsLib = await import('pdfjs-dist');
       
-      // Configure worker with better error handling
       if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
         const workerSources = [
           `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`,
@@ -118,12 +134,11 @@ class GeminiPdfExtractor {
         ];
         
         pdfjsLib.GlobalWorkerOptions.workerSrc = workerSources[0];
-        console.log('Configured PDF.js worker for Gemini extraction:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+        console.log('Configured PDF.js worker for enhanced Gemini extraction');
       }
       
       const arrayBuffer = await file.arrayBuffer();
       
-      // Additional validation
       if (arrayBuffer.byteLength === 0) {
         throw new Error('PDF file arrayBuffer is empty');
       }
@@ -137,19 +152,21 @@ class GeminiPdfExtractor {
       }).promise;
       const totalPages = pdf.numPages;
       
-      console.log(`Processing ${totalPages} pages with Gemini AI...`);
+      console.log(`Processing ${totalPages} pages with enhanced AI extraction...`);
+      onProgress?.(0, totalPages, 'analyzing');
       
-      // Process pages sequentially with proper rate limiting
+      // Process pages sequentially with enhanced progress tracking
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
         console.log(`Processing page ${pageNum}/${totalPages}...`);
+        onProgress?.(pageNum, totalPages, 'extracting');
         
         let attempts = 0;
-        const maxAttempts = 2; // Reduced attempts to avoid timeout
+        const maxAttempts = 2;
         let success = false;
         
         while (attempts < maxAttempts && !success) {
           try {
-            const extractedText = await this.extractPageWithGemini(file, pageNum);
+            const extractedText = await this.extractPageWithEnhancedGemini(file, pageNum);
             extractedPages.push({
               pageNumber: pageNum,
               text: extractedText,
@@ -162,7 +179,7 @@ class GeminiPdfExtractor {
             console.error(`Attempt ${attempts} failed for page ${pageNum}:`, error);
             
             if (attempts < maxAttempts) {
-              const waitTime = 3000; // Shorter wait time
+              const waitTime = 3000;
               console.log(`Waiting ${waitTime}ms before retry...`);
               await new Promise(resolve => setTimeout(resolve, waitTime));
             } else {
@@ -176,93 +193,127 @@ class GeminiPdfExtractor {
           }
         }
         
-        // Rate limiting: wait between pages to avoid hitting Gemini limits
         if (pageNum < totalPages) {
           console.log('Waiting between pages to respect rate limits...');
-          await new Promise(resolve => setTimeout(resolve, 6000)); // Slightly reduced wait time
+          await new Promise(resolve => setTimeout(resolve, 6000));
         }
       }
       
-      // Combine all extracted text
+      onProgress?.(totalPages, totalPages, 'processing');
+      
+      // Combine all extracted text with intelligent page separation
       const fullText = extractedPages
         .sort((a, b) => a.pageNumber - b.pageNumber)
-        .map(page => page.text)
-        .filter(text => text && !text.includes('extraction failed'))
+        .map(page => {
+          if (page.text && !page.text.includes('extraction failed')) {
+            return this.extractionSettings.separatePages 
+              ? `--- Page ${page.pageNumber} ---\n${page.text}\n`
+              : page.text;
+          }
+          return '';
+        })
+        .filter(text => text.length > 0)
         .join('\n\n');
       
       const processingTime = Date.now() - startTime;
       
-      console.log(`Gemini PDF extraction completed in ${processingTime}ms`);
+      console.log(`Enhanced Gemini PDF extraction completed in ${processingTime}ms`);
       console.log(`Final extracted text length: ${fullText.length} characters`);
       
       if (fullText.length === 0) {
         throw new Error('No text content was successfully extracted from any page');
       }
       
+      onProgress?.(totalPages, totalPages, 'completed');
+      
       return {
         text: fullText,
         pages: extractedPages,
         metadata: {
           totalPages,
-          extractionMethod: 'gemini-vision',
+          extractionMethod: 'enhanced-gemini-vision',
           processingTime
         }
       };
       
     } catch (error) {
-      console.error('Gemini PDF extraction failed:', error);
-      throw new Error(`Gemini PDF extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Enhanced Gemini PDF extraction failed:', error);
+      throw new Error(`Enhanced Gemini PDF extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  private async extractPageWithGemini(file: File, pageNumber: number): Promise<string> {
+  private async extractPageWithEnhancedGemini(file: File, pageNumber: number): Promise<string> {
     try {
-      // Convert PDF page to base64 image
       const base64Image = await this.convertPdfPageToBase64(file, pageNumber);
-      
-      // Create specialized prompt for accurate text extraction across all languages
-      const prompt = `
-Extract ALL text content from this document page image with maximum accuracy. This is CRITICAL for multilingual translation purposes.
-
-EXTRACTION REQUIREMENTS:
-1. **COMPLETENESS**: Extract every single word, number, symbol, and character visible
-2. **ACCURACY**: Preserve exact spelling, capitalization, punctuation, and diacritics
-3. **MULTILINGUAL SUPPORT**: Handle text in ANY language including:
-   - Latin scripts (English, Spanish, French, German, Italian, Portuguese, etc.)
-   - Arabic script with all diacritics and vowel marks
-   - Chinese characters (Simplified and Traditional)
-   - Japanese (Hiragana, Katakana, Kanji)
-   - Cyrillic script (Russian, Ukrainian, Bulgarian, etc.)
-   - Devanagari (Hindi, Sanskrit, Marathi, etc.)
-   - African languages (Yoruba, Swahili, Hausa, etc.)
-   - Hebrew, Thai, Korean, Vietnamese, and ALL other writing systems
-4. **STRUCTURE**: Maintain original layout, paragraph breaks, and formatting
-5. **SPECIAL CHARACTERS**: Include all diacritics, mathematical symbols, and special marks
-6. **DIRECTION**: Properly handle right-to-left (RTL) and left-to-right (LTR) text
-
-FORMATTING PRESERVATION:
-- Keep original line breaks and paragraph structure
-- Preserve bullet points, numbering, and indentation
-- Maintain spacing between sections
-- Keep headers and subheadings distinct
-- Preserve table structures if present
-
-OUTPUT INSTRUCTIONS:
-- Provide ONLY the extracted text content
-- NO explanations, comments, or metadata
-- If page appears blank, respond with "[BLANK PAGE]"
-- If text is unclear, use [UNCLEAR: best_guess] notation
-- Maintain the original reading order and text flow
-
-This text will be used for professional translation across multiple languages - accuracy is paramount.
-      `.trim();
-
+      const prompt = this.createEnhancedExtractionPrompt();
       return await this.extractWithGeminiVision(prompt, base64Image);
-      
     } catch (error) {
-      console.error(`Error extracting page ${pageNumber} with Gemini:`, error);
+      console.error(`Error extracting page ${pageNumber} with enhanced Gemini:`, error);
       throw error;
     }
+  }
+
+  private createEnhancedExtractionPrompt(): string {
+    const filterInstructions = [];
+    
+    if (this.extractionSettings.ignoreHeaders) {
+      filterInstructions.push('- IGNORE page headers (typically at the top of pages)');
+    }
+    if (this.extractionSettings.ignoreFooters) {
+      filterInstructions.push('- IGNORE page footers (typically at the bottom of pages)');
+    }
+    if (this.extractionSettings.ignorePageNumbers) {
+      filterInstructions.push('- IGNORE page numbers (usually isolated numbers)');
+    }
+    if (this.extractionSettings.ignoreFootnotes) {
+      filterInstructions.push('- IGNORE footnotes and reference numbers');
+    }
+
+    const formatInstructions = this.extractionSettings.maintainFormatting
+      ? 'PRESERVE original formatting, paragraph breaks, and text structure'
+      : 'Extract as plain text without special formatting';
+
+    return `
+You are a professional document content extractor with expertise in multilingual text recognition. Your task is to extract ONLY the main content from this document page with maximum accuracy and intelligence.
+
+CRITICAL EXTRACTION REQUIREMENTS:
+1. **CONTENT FOCUS**: Extract only the main document content - the actual text that readers need
+2. **INTELLIGENT FILTERING**: ${filterInstructions.length > 0 ? filterInstructions.join('\n') : 'Extract all visible content'}
+3. **ACCURACY**: Preserve exact spelling, capitalization, punctuation, and diacritics
+4. **MULTILINGUAL SUPPORT**: Handle text in ANY language with full Unicode support
+5. **FORMATTING**: ${formatInstructions}
+
+WHAT TO EXTRACT:
+✓ Main body text and paragraphs
+✓ Headings and subheadings (part of content)
+✓ Important quotes and highlighted text
+✓ Lists and bullet points (part of content)
+✓ Table content (if it's main content)
+✓ Captions for images/charts (if relevant to content)
+
+WHAT TO IGNORE:
+${filterInstructions.length > 0 ? filterInstructions.join('\n') : '(No specific filtering requested)'}
+✗ Watermarks and background text
+✗ Publisher information (unless it's main content)
+✗ Copyright notices (unless it's main content)
+✗ Page margins and decorative elements
+
+INTELLIGENT PROCESSING:
+- Distinguish between main content and peripheral elements
+- Maintain logical reading flow and paragraph structure
+- Handle multi-column layouts intelligently
+- Preserve the document's natural text hierarchy
+- Ensure content flows naturally without interruption from filtered elements
+
+OUTPUT REQUIREMENTS:
+- Provide ONLY the extracted main content
+- NO explanations, comments, or metadata
+- If page appears to contain no main content, respond with "[NO MAIN CONTENT]"
+- If text is unclear in specific areas, use [UNCLEAR: best_guess] notation
+- Maintain clean, readable text flow
+
+This extraction is for professional translation purposes - accuracy and content focus are paramount.
+    `.trim();
   }
 
   private async extractWithGeminiVision(prompt: string, base64Image: string): Promise<string> {

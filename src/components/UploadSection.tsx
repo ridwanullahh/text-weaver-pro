@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import ExtractionMethodSelector from './ExtractionMethodSelector';
+import ExtractionSettings from './ExtractionSettings';
+import ExtractionProgress from './ExtractionProgress';
 import { 
   Upload, 
   FileText, 
@@ -18,6 +20,7 @@ import {
   Info
 } from 'lucide-react';
 import { fileExtractor } from '../services/fileExtractor';
+import { geminiPdfExtractor } from '../services/geminiPdfExtractor';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
 
@@ -47,6 +50,21 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractionMethod, setExtractionMethod] = useState<'ai' | 'traditional'>('ai');
   const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [extractionSettings, setExtractionSettings] = useState({
+    ignoreHeaders: true,
+    ignoreFooters: true,
+    ignorePageNumbers: true,
+    ignoreFootnotes: false,
+    maintainFormatting: true,
+    separatePages: true
+  });
+  const [currentExtractionProgress, setCurrentExtractionProgress] = useState<{
+    currentPage: number;
+    totalPages: number;
+    currentFile: string;
+    stage: 'analyzing' | 'extracting' | 'processing' | 'completed';
+    processingTime: number;
+  } | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map(file => ({
@@ -87,17 +105,76 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     ));
 
     try {
-      const progressInterval = setInterval(() => {
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id && f.progress < 90 && f.status === 'processing'
-            ? { ...f, progress: Math.min(f.progress + 15, 90) }
-            : f
-        ));
-      }, 1000);
-
-      const extractedData = await fileExtractor.extractFromFile(fileData.file, extractionMethod);
+      let extractedData;
       
-      clearInterval(progressInterval);
+      if (extractionMethod === 'ai' && fileData.file.type === 'application/pdf') {
+        // Set extraction settings for Gemini
+        geminiPdfExtractor.setExtractionSettings(extractionSettings);
+        
+        // Setup progress tracking
+        const startTime = Date.now();
+        setCurrentExtractionProgress({
+          currentPage: 0,
+          totalPages: 0,
+          currentFile: fileData.file.name,
+          stage: 'analyzing',
+          processingTime: 0
+        });
+        
+        const progressInterval = setInterval(() => {
+          setCurrentExtractionProgress(prev => prev ? {
+            ...prev,
+            processingTime: Math.floor((Date.now() - startTime) / 1000)
+          } : null);
+        }, 1000);
+        
+        const onProgress = (page: number, total: number, stage: string) => {
+          setCurrentExtractionProgress({
+            currentPage: page,
+            totalPages: total,
+            currentFile: fileData.file.name,
+            stage: stage as any,
+            processingTime: Math.floor((Date.now() - startTime) / 1000)
+          });
+          
+          // Update file progress
+          const progress = total > 0 ? Math.min((page / total) * 90, 90) : 10;
+          setUploadedFiles(prev => prev.map(f => 
+            f.id === fileData.id 
+              ? { ...f, progress }
+              : f
+          ));
+        };
+        
+        try {
+          const result = await geminiPdfExtractor.extractWithGemini(fileData.file, onProgress);
+          extractedData = {
+            text: result.text,
+            metadata: {
+              title: fileData.file.name.split('.')[0],
+              pages: result.metadata.totalPages,
+              wordCount: result.text.split(/\s+/).filter(word => word.length > 0).length,
+              fileSize: (fileData.file.size / 1024 / 1024).toFixed(2) + ' MB',
+              lastModified: new Date(fileData.file.lastModified)
+            }
+          };
+        } finally {
+          clearInterval(progressInterval);
+          setCurrentExtractionProgress(null);
+        }
+      } else {
+        // Use traditional extraction
+        const progressInterval = setInterval(() => {
+          setUploadedFiles(prev => prev.map(f => 
+            f.id === fileData.id && f.progress < 90 && f.status === 'processing'
+              ? { ...f, progress: Math.min(f.progress + 15, 90) }
+              : f
+          ));
+        }, 1000);
+        
+        extractedData = await fileExtractor.extractFromFile(fileData.file, extractionMethod);
+        clearInterval(progressInterval);
+      }
       
       console.log(`Extraction completed for ${fileData.file.name}:`, {
         textLength: extractedData.text?.length,
@@ -119,6 +196,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       return extractedData;
     } catch (error) {
       console.error('File processing error:', error);
+      setCurrentExtractionProgress(null);
       setUploadedFiles(prev => prev.map(f => 
         f.id === fileData.id 
           ? { 
@@ -267,7 +345,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
       <div className="text-center">
         <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 md:mb-4">📤 Upload Documents</h2>
         <p className="text-white/60 text-sm md:text-lg">
-          Upload your documents and select your preferred extraction method
+          Upload your documents and configure extraction settings
         </p>
       </div>
 
@@ -276,6 +354,24 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
         onMethodChange={setExtractionMethod}
         disabled={uploadedFiles.some(f => f.status === 'processing') || isProcessing}
       />
+
+      {extractionMethod === 'ai' && uploadedFiles.length > 0 && uploadedFiles.some(f => f.status === 'pending') && (
+        <ExtractionSettings
+          settings={extractionSettings}
+          onSettingsChange={setExtractionSettings}
+          disabled={isProcessing}
+        />
+      )}
+
+      {currentExtractionProgress && (
+        <ExtractionProgress
+          currentPage={currentExtractionProgress.currentPage}
+          totalPages={currentExtractionProgress.totalPages}
+          currentFile={currentExtractionProgress.currentFile}
+          stage={currentExtractionProgress.stage}
+          processingTime={currentExtractionProgress.processingTime}
+        />
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
