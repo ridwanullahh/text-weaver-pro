@@ -20,7 +20,7 @@ const AIProviderSettings: React.FC = () => {
   const providerModels = {
     openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
     anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-    gemini: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'],
+    gemini: ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-pro'],
     chutes: ['deepseek-ai/DeepSeek-V3-0324', 'meta-llama/Llama-3.3-70B-Instruct'],
     custom: ['custom-model']
   };
