@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import ExtractionMethodSelector from './ExtractionMethodSelector';
 import ExtractionSettings from './ExtractionSettings';
 import ExtractionProgress from './ExtractionProgress';
+import { monetizationService } from '../services/monetizationService';
 import { 
   Upload, 
   FileText, 
@@ -17,7 +20,9 @@ import {
   Eye,
   Download,
   Loader,
-  Info
+  Info,
+  DollarSign,
+  Wallet
 } from 'lucide-react';
 import { fileExtractor } from '../services/fileExtractor';
 import { geminiPdfExtractor } from '../services/geminiPdfExtractor';
@@ -43,9 +48,12 @@ interface UploadedFile {
     lastModified?: Date;
   };
   error?: string;
+  estimatedCost?: number;
 }
 
 const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
+  const { user, updateWallet } = useAuth();
+  const { toast } = useToast();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractionMethod, setExtractionMethod] = useState<'ai' | 'traditional'>('ai');
@@ -66,16 +74,38 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     processingTime: number;
   } | null>(null);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const newFiles = acceptedFiles.map(file => ({
-      file,
-      id: crypto.randomUUID(),
-      status: 'pending' as const,
-      progress: 0
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const newFiles = await Promise.all(acceptedFiles.map(async (file) => {
+      let estimatedCost = 0;
+      
+      // Estimate pages for PDF files
+      if (file.type === 'application/pdf') {
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const pages = pdf.numPages;
+          
+          if (extractionMethod === 'ai') {
+            const costCalculation = monetizationService.calculateExtractionCost(pages);
+            estimatedCost = costCalculation.totalCost;
+          }
+        } catch (error) {
+          console.error('Error estimating pages:', error);
+        }
+      }
+      
+      return {
+        file,
+        id: crypto.randomUUID(),
+        status: 'pending' as const,
+        progress: 0,
+        estimatedCost
+      };
     }));
     
     setUploadedFiles(prev => [...prev, ...newFiles]);
-  }, []);
+  }, [extractionMethod]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -97,6 +127,52 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
 
   const processFile = async (fileData: UploadedFile) => {
     console.log(`Starting file processing for: ${fileData.file.name} with ${extractionMethod} method`);
+    
+    // Check wallet balance for AI extraction
+    if (extractionMethod === 'ai' && fileData.estimatedCost && fileData.estimatedCost > 0) {
+      const walletCheck = monetizationService.checkWalletBalance(user, fileData.estimatedCost);
+      if (!walletCheck.canProceed) {
+        toast({
+          title: "Insufficient Funds",
+          description: walletCheck.message,
+          variant: "destructive"
+        });
+        
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id 
+            ? { ...f, status: 'error', error: walletCheck.message }
+            : f
+        ));
+        return;
+      }
+      
+      // Deduct cost from wallet
+      const deductionSuccess = await monetizationService.deductFromWallet(
+        user, 
+        fileData.estimatedCost, 
+        updateWallet
+      );
+      
+      if (!deductionSuccess) {
+        toast({
+          title: "Payment Failed",
+          description: "Unable to process payment. Please try again.",
+          variant: "destructive"
+        });
+        
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === fileData.id 
+            ? { ...f, status: 'error', error: 'Payment processing failed' }
+            : f
+        ));
+        return;
+      }
+      
+      toast({
+        title: "Payment Processed",
+        description: `$${fileData.estimatedCost.toFixed(2)} deducted from wallet`,
+      });
+    }
     
     setUploadedFiles(prev => prev.map(f => 
       f.id === fileData.id 
@@ -163,7 +239,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
           setCurrentExtractionProgress(null);
         }
       } else {
-        // Use traditional extraction
+        // Use traditional extraction (free)
         const progressInterval = setInterval(() => {
           setUploadedFiles(prev => prev.map(f => 
             f.id === fileData.id && f.progress < 90 && f.status === 'processing'
@@ -220,6 +296,24 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     if (pendingFiles.length === 0) {
       setIsProcessing(false);
       return;
+    }
+    
+    // Check total wallet balance for AI extraction
+    if (extractionMethod === 'ai') {
+      const totalCost = pendingFiles.reduce((sum, file) => sum + (file.estimatedCost || 0), 0);
+      
+      if (totalCost > 0) {
+        const walletCheck = monetizationService.checkWalletBalance(user, totalCost);
+        if (!walletCheck.canProceed) {
+          toast({
+            title: "Insufficient Funds",
+            description: `Total cost: $${totalCost.toFixed(2)}. ${walletCheck.message}`,
+            variant: "destructive"
+          });
+          setIsProcessing(false);
+          return;
+        }
+      }
     }
     
     console.log(`Processing ${pendingFiles.length} files with ${extractionMethod} method...`);
@@ -340,6 +434,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     }
   };
 
+  const totalEstimatedCost = uploadedFiles
+    .filter(f => f.status === 'pending')
+    .reduce((sum, f) => sum + (f.estimatedCost || 0), 0);
+
   return (
     <div className="space-y-6 md:space-y-8 px-4 md:px-0">
       <div className="text-center">
@@ -348,6 +446,29 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
           Upload your documents and configure extraction settings
         </p>
       </div>
+
+      {/* Wallet Balance Display */}
+      {user && (
+        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-green-400" />
+                <span className="text-white">Wallet Balance:</span>
+                <span className="text-white font-bold">${user.walletBalance.toFixed(2)}</span>
+              </div>
+              {totalEstimatedCost > 0 && (
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-yellow-400" />
+                  <span className="text-white/80 text-sm">
+                    Estimated Cost: ${totalEstimatedCost.toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <ExtractionMethodSelector 
         method={extractionMethod}
@@ -399,6 +520,11 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
               <p className="text-white/40 text-xs md:text-sm">
                 Maximum file size: 50MB per file
               </p>
+              {extractionMethod === 'ai' && (
+                <p className="text-yellow-300 text-xs mt-2">
+                  💡 AI extraction costs $0.10 per page
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -413,10 +539,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                 {uploadedFiles.some(f => f.status === 'pending') && (
                   <Button 
                     onClick={processAllFiles}
-                    disabled={isProcessing}
+                    disabled={isProcessing || (totalEstimatedCost > 0 && (!user || user.walletBalance < totalEstimatedCost))}
                     className="bg-gradient-to-r from-purple-500 to-blue-500 w-full sm:w-auto"
                   >
-                    {isProcessing ? 'Processing...' : 'Process All Files'}
+                    {isProcessing ? 'Processing...' : `Process All Files${totalEstimatedCost > 0 ? ` ($${totalEstimatedCost.toFixed(2)})` : ''}`}
                   </Button>
                 )}
                 {uploadedFiles.some(f => f.status === 'completed') && (
@@ -444,6 +570,11 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
                         <p className="text-white font-medium truncate">{fileData.file.name}</p>
                         <p className="text-white/60 text-sm">
                           {(fileData.file.size / 1024 / 1024).toFixed(1)} MB
+                          {fileData.estimatedCost && fileData.estimatedCost > 0 && (
+                            <span className="ml-2 text-yellow-300">
+                              • Cost: ${fileData.estimatedCost.toFixed(2)}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
