@@ -18,8 +18,8 @@ interface TranslationCallbacks {
 }
 
 class TranslationService {
-  private activeTranslations = new Map<number, boolean>();
-  private processingQueue = new Map<number, { chunks: TranslationChunk[], currentIndex: number }>();
+  private activeTranslations = new Map<string, boolean>();
+  private processingQueue = new Map<string, { chunks: TranslationChunk[], currentIndex: number }>();
 
   async startTranslation(
     project: TranslationProject, 
@@ -27,15 +27,15 @@ class TranslationService {
     user?: any,
     updateWallet?: (amount: number) => Promise<void>
   ) {
-    if (this.activeTranslations.get(project.id!)) {
+    if (this.activeTranslations.get(project.id)) {
       throw new Error('Translation already in progress for this project');
     }
 
-    this.activeTranslations.set(project.id!, true);
+    this.activeTranslations.set(project.id, true);
     
     try {
       // Calculate translation cost
-      const chunks = this.splitIntoChunks(project.originalContent, project.settings.chunkSize);
+      const chunks = this.splitIntoChunks(project.originalContent, project.settings?.chunkSize || 1000);
       const totalTranslations = project.targetLanguages.length * chunks.length;
       const costCalculation = monetizationService.calculateTranslationCost(project.targetLanguages.length, chunks.length);
 
@@ -70,14 +70,14 @@ class TranslationService {
       }
 
       // Update project status
-      await dbUtils.updateProject(project.id!, { status: 'processing' });
+      await dbUtils.updateProject(project.id, { status: 'processing' });
       
       // Create or retrieve existing chunks
-      const existingChunks = await dbUtils.getProjectChunks(project.id!);
-      const chunksToProcess = existingChunks.length > 0 ? existingChunks : await this.createChunks(project.id!, chunks);
+      const existingChunks = await dbUtils.getProjectChunks(project.id);
+      const chunksToProcess = existingChunks.length > 0 ? existingChunks : await this.createChunks(project.id, chunks);
       
       // Initialize processing queue
-      this.processingQueue.set(project.id!, { chunks: chunksToProcess, currentIndex: 0 });
+      this.processingQueue.set(project.id, { chunks: chunksToProcess, currentIndex: 0 });
       
       let completedChunks = 0;
       let totalChunks = chunksToProcess.length * project.targetLanguages.length;
@@ -86,16 +86,16 @@ class TranslationService {
       
       // Process each target language sequentially
       for (const targetLanguage of project.targetLanguages) {
-        if (!this.activeTranslations.get(project.id!)) break;
+        if (!this.activeTranslations.get(project.id)) break;
         
         // Process chunks sequentially with proper rate limiting
         for (let chunkIndex = 0; chunkIndex < chunksToProcess.length; chunkIndex++) {
-          if (!this.activeTranslations.get(project.id!)) break;
+          if (!this.activeTranslations.get(project.id)) break;
           
           const chunk = chunksToProcess[chunkIndex];
           
           // Update current chunk index for UI tracking
-          this.processingQueue.set(project.id!, { chunks: chunksToProcess, currentIndex: chunkIndex });
+          this.processingQueue.set(project.id, { chunks: chunksToProcess, currentIndex: chunkIndex });
           
           // Check if this chunk is already translated for this language
           if (chunk.translations[targetLanguage] && chunk.status === 'completed') {
@@ -111,7 +111,7 @@ class TranslationService {
           let translationSuccess = false;
           
           // Retry loop with exponential backoff
-          while (!translationSuccess && retryCount < project.settings.maxRetries) {
+          while (!translationSuccess && retryCount < (project.settings?.maxRetries || 3)) {
             try {
               // Wait for rate limit before attempting translation
               await this.waitForRateLimit();
@@ -145,7 +145,7 @@ class TranslationService {
               console.error(`Error translating chunk ${chunk.id} to ${targetLanguage} (attempt ${retryCount + 1}):`, error);
               retryCount++;
               
-              if (retryCount < project.settings.maxRetries) {
+              if (retryCount < (project.settings?.maxRetries || 3)) {
                 // Exponential backoff: 2^retryCount seconds
                 const waitTime = Math.pow(2, retryCount) * 1000;
                 console.log(`Retrying in ${waitTime}ms...`);
@@ -177,7 +177,7 @@ class TranslationService {
           });
           
           // Update project progress
-          await dbUtils.updateProject(project.id!, { 
+          await dbUtils.updateProject(project.id, { 
             progress: percentage,
             completedChunks: Math.floor(completedChunks / project.targetLanguages.length)
           });
@@ -197,13 +197,13 @@ class TranslationService {
       const isActuallyCompleted = actualCompletedChunks === chunksToProcess.length;
       
       // Mark project as completed only if all chunks are actually translated
-      await dbUtils.updateProject(project.id!, { 
+      await dbUtils.updateProject(project.id, { 
         status: isActuallyCompleted ? 'completed' : 'error', 
         progress: isActuallyCompleted ? 100 : (actualCompletedChunks / chunksToProcess.length) * 100
       });
       
-      this.activeTranslations.delete(project.id!);
-      this.processingQueue.delete(project.id!);
+      this.activeTranslations.delete(project.id);
+      this.processingQueue.delete(project.id);
       
       if (isActuallyCompleted) {
         callbacks.onComplete();
@@ -212,19 +212,19 @@ class TranslationService {
       }
       
     } catch (error) {
-      this.activeTranslations.delete(project.id!);
-      this.processingQueue.delete(project.id!);
-      await dbUtils.updateProject(project.id!, { status: 'error' });
+      this.activeTranslations.delete(project.id);
+      this.processingQueue.delete(project.id);
+      await dbUtils.updateProject(project.id, { status: 'error' });
       callbacks.onError(error as Error);
     }
   }
 
-  async pauseTranslation(projectId: number) {
+  async pauseTranslation(projectId: string) {
     this.activeTranslations.set(projectId, false);
     await dbUtils.updateProject(projectId, { status: 'paused' });
   }
 
-  async resetTranslation(projectId: number) {
+  async resetTranslation(projectId: string) {
     this.activeTranslations.delete(projectId);
     this.processingQueue.delete(projectId);
     
@@ -246,7 +246,7 @@ class TranslationService {
     });
   }
 
-  getCurrentChunkIndex(projectId: number): number {
+  getCurrentChunkIndex(projectId: string): number {
     return this.processingQueue.get(projectId)?.currentIndex || 0;
   }
 
@@ -319,7 +319,7 @@ class TranslationService {
     return chunks;
   }
 
-  private async createChunks(projectId: number, textChunks: string[]): Promise<TranslationChunk[]> {
+  private async createChunks(projectId: string, textChunks: string[]): Promise<TranslationChunk[]> {
     const chunks: TranslationChunk[] = [];
     
     for (let i = 0; i < textChunks.length; i++) {

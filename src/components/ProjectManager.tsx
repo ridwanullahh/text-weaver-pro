@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -32,10 +31,10 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   onProjectsUpdate 
 }) => {
   const { toast } = useToast();
-  const [deletingProject, setDeletingProject] = useState<number | null>(null);
-  const [processingProject, setProcessingProject] = useState<number | null>(null);
+  const [deletingProject, setDeletingProject] = useState<string | null>(null);
+  const [processingProject, setProcessingProject] = useState<string | null>(null);
 
-  const deleteProject = async (projectId: number) => {
+  const deleteProject = async (projectId: string) => {
     try {
       setDeletingProject(projectId);
       await translationDB.projects.delete(projectId);
@@ -60,7 +59,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
   };
 
   const updateProjectStatus = async (
-    projectId: number, 
+    projectId: string, 
     newStatus: 'pending' | 'processing' | 'paused' | 'completed' | 'error'
   ) => {
     try {
@@ -97,7 +96,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
     }
   };
 
-  const restartProject = async (projectId: number) => {
+  const restartProject = async (projectId: string) => {
     try {
       setProcessingProject(projectId);
       
@@ -311,7 +310,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
 
                   {canStartProject(project) && (
                     <Button
-                      onClick={() => updateProjectStatus(project.id!, 'processing')}
+                      onClick={() => updateProjectStatus(project.id, 'processing')}
                       disabled={processingProject === project.id}
                       className="bg-green-500 hover:bg-green-600"
                       size="sm"
@@ -323,7 +322,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
 
                   {canPauseProject(project) && (
                     <Button
-                      onClick={() => updateProjectStatus(project.id!, 'paused')}
+                      onClick={() => updateProjectStatus(project.id, 'paused')}
                       disabled={processingProject === project.id}
                       className="bg-yellow-500 hover:bg-yellow-600"
                       size="sm"
@@ -335,7 +334,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
 
                   {canRestartProject(project) && (
                     <Button
-                      onClick={() => restartProject(project.id!)}
+                      onClick={() => restartProject(project.id)}
                       disabled={processingProject === project.id}
                       variant="outline"
                       size="sm"
@@ -347,7 +346,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
                   )}
 
                   <Button
-                    onClick={() => deleteProject(project.id!)}
+                    onClick={() => deleteProject(project.id)}
                     disabled={deletingProject === project.id || processingProject === project.id}
                     variant="outline"
                     size="sm"

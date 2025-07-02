@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -53,12 +52,12 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
   };
 
   const pauseTranslation = async () => {
-    await translationService.pauseTranslation(project.id!);
+    await translationService.pauseTranslation(project.id);
     setIsTranslating(false);
   };
 
   const resetTranslation = async () => {
-    await translationService.resetTranslation(project.id!);
+    await translationService.resetTranslation(project.id);
     setProgress(0);
     setCurrentLanguage('');
     setEstimatedTime(0);
