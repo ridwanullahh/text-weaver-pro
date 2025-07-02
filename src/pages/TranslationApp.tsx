@@ -67,7 +67,7 @@ const TranslationApp = () => {
       const newProject: TranslationProject = {
         id: Date.now().toString(),
         name: `Project_${Date.now()}`,
-        status: 'ready',
+        status: 'pending',
         sourceLanguage: 'auto',
         targetLanguages: [],
         totalChunks: files.length,
