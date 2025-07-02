@@ -47,14 +47,14 @@ export const dbUtils = {
       };
       
       const id = await translationDB.projects.add(newProject as TranslationProject);
-      return { ...newProject, id } as TranslationProject;
+      return { ...newProject, id: String(id) } as TranslationProject;
     } catch (error) {
       console.error('Error creating project:', error);
       throw new Error('Failed to create project. Please try again.');
     }
   },
 
-  async updateProject(id: number, updates: Partial<TranslationProject>): Promise<void> {
+  async updateProject(id: string, updates: Partial<TranslationProject>): Promise<void> {
     try {
       await translationDB.projects.update(id, {
         ...updates,
@@ -66,7 +66,7 @@ export const dbUtils = {
     }
   },
 
-  async getProject(id: number): Promise<TranslationProject | undefined> {
+  async getProject(id: string): Promise<TranslationProject | undefined> {
     try {
       return await translationDB.projects.get(id);
     } catch (error) {
@@ -75,7 +75,7 @@ export const dbUtils = {
     }
   },
 
-  async deleteProject(id: number): Promise<void> {
+  async deleteProject(id: string): Promise<void> {
     try {
       await translationDB.transaction('rw', translationDB.projects, translationDB.chunks, async () => {
         await translationDB.projects.delete(id);
@@ -95,7 +95,7 @@ export const dbUtils = {
       };
       
       const id = await translationDB.chunks.add(newChunk as TranslationChunk);
-      return { ...newChunk, id } as TranslationChunk;
+      return { ...newChunk, id: Number(id) } as TranslationChunk;
     } catch (error) {
       console.error('Error adding chunk:', error);
       throw new Error('Failed to add translation chunk.');
@@ -111,7 +111,7 @@ export const dbUtils = {
     }
   },
 
-  async getProjectChunks(projectId: number): Promise<TranslationChunk[]> {
+  async getProjectChunks(projectId: string): Promise<TranslationChunk[]> {
     try {
       return await translationDB.chunks.where('projectId').equals(projectId).sortBy('chunkIndex');
     } catch (error) {
