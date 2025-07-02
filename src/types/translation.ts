@@ -1,18 +1,26 @@
-
 export interface TranslationProject {
-  id?: number;
+  id: string;
   name: string;
+  status: 'pending' | 'processing' | 'completed' | 'error' | 'paused' | 'ready';
   sourceLanguage: string;
   targetLanguages: string[];
-  originalContent: string;
-  fileType: 'text' | 'pdf' | 'docx' | 'epub';
   totalChunks: number;
-  completedChunks: number;
-  status: 'pending' | 'processing' | 'completed' | 'error' | 'paused';
-  progress: number;
+  translatedChunks: number;
   createdAt: Date;
   updatedAt: Date;
-  settings: TranslationSettings;
+  files?: Array<{
+    id: string;
+    name: string;
+    size: number;
+    content: string;
+    type: string;
+    uploadedAt: Date;
+  }>;
+  originalContent?: string;
+  fileType?: 'text' | 'pdf' | 'docx' | 'epub';
+  completedChunks?: number;
+  progress?: number;
+  settings?: TranslationSettings;
 }
 
 export interface TranslationChunk {
