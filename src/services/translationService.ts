@@ -1,7 +1,7 @@
-
 import { TranslationProject, TranslationChunk } from '../types/translation';
 import { dbUtils } from '../utils/database';
 import { aiProviderService } from './aiProviderService';
+import { monetizationService } from './monetizationService';
 
 interface TranslationProgress {
   percentage: number;
@@ -21,7 +21,12 @@ class TranslationService {
   private activeTranslations = new Map<number, boolean>();
   private processingQueue = new Map<number, { chunks: TranslationChunk[], currentIndex: number }>();
 
-  async startTranslation(project: TranslationProject, callbacks: TranslationCallbacks) {
+  async startTranslation(
+    project: TranslationProject, 
+    callbacks: TranslationCallbacks,
+    user?: any,
+    updateWallet?: (amount: number) => Promise<void>
+  ) {
     if (this.activeTranslations.get(project.id!)) {
       throw new Error('Translation already in progress for this project');
     }
@@ -29,11 +34,43 @@ class TranslationService {
     this.activeTranslations.set(project.id!, true);
     
     try {
+      // Calculate translation cost
+      const chunks = this.splitIntoChunks(project.originalContent, project.settings.chunkSize);
+      const totalTranslations = project.targetLanguages.length * chunks.length;
+      const costCalculation = monetizationService.calculateTranslationCost(project.targetLanguages.length, chunks.length);
+
+      // Check if user is logged in and enforce monetization
+      if (user) {
+        // Check daily free translation limit first
+        const dailyCheck = monetizationService.checkDailyTranslationLimit(user);
+        
+        if (totalTranslations > dailyCheck.remaining) {
+          // Need to use paid translations
+          const paidTranslations = totalTranslations - dailyCheck.remaining;
+          const paidCost = paidTranslations * 0.05; // $0.05 per translation
+          
+          const balanceCheck = monetizationService.checkWalletBalance(user, paidCost);
+          if (!balanceCheck.canProceed) {
+            throw new Error(balanceCheck.message);
+          }
+
+          // Deduct cost for paid translations
+          if (updateWallet && paidCost > 0) {
+            const deductionSuccess = await monetizationService.deductFromWallet(user, paidCost, updateWallet);
+            if (!deductionSuccess) {
+              throw new Error('Failed to process payment for translations');
+            }
+          }
+        }
+      } else {
+        // For non-logged in users, enforce stricter limits or require login
+        if (totalTranslations > 3) {
+          throw new Error('Please log in to translate more than 3 text segments');
+        }
+      }
+
       // Update project status
       await dbUtils.updateProject(project.id!, { status: 'processing' });
-      
-      // Split content into chunks
-      const chunks = this.splitIntoChunks(project.originalContent, project.settings.chunkSize);
       
       // Create or retrieve existing chunks
       const existingChunks = await dbUtils.getProjectChunks(project.id!);

@@ -1,63 +1,42 @@
+
 import React, { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import ExtractionMethodSelector from './ExtractionMethodSelector';
+import { useAuth } from '@/hooks/useAuth';
+import { monetizationService } from '@/services/monetizationService';
 import ExtractionSettings from './ExtractionSettings';
 import ExtractionProgress from './ExtractionProgress';
-import { monetizationService } from '../services/monetizationService';
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle,
-  X,
-  Eye,
-  Download,
-  Loader,
-  Info,
-  DollarSign,
-  Wallet
-} from 'lucide-react';
-import { fileExtractor } from '../services/fileExtractor';
-import { geminiPdfExtractor } from '../services/geminiPdfExtractor';
-import { translationDB } from '../utils/database';
-import { TranslationProject } from '../types/translation';
+import { Upload, FileText, Zap, AlertCircle, Wallet, Plus } from 'lucide-react';
+import { geminiPdfExtractor } from '@/services/geminiPdfExtractor';
+import { fileExtractor } from '@/services/fileExtractor';
 
 interface UploadSectionProps {
-  onProjectCreate: (project: TranslationProject) => void;
+  onFilesProcessed: (files: Array<{ name: string; content: string; size: number }>) => void;
+  disabled?: boolean;
+  extractionMethod: 'traditional' | 'ai';
 }
 
-interface UploadedFile {
-  file: File;
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  progress: number;
-  extractedContent?: string;
-  metadata?: {
-    title?: string;
-    author?: string;
-    pages?: number;
-    wordCount?: number;
-    fileSize?: string;
-    lastModified?: Date;
-  };
-  error?: string;
-  estimatedCost?: number;
-}
-
-const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
-  const { user, updateWallet } = useAuth();
+const UploadSection: React.FC<UploadSectionProps> = ({ 
+  onFilesProcessed, 
+  disabled = false,
+  extractionMethod 
+}) => {
   const { toast } = useToast();
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const { user, updateWallet } = useAuth();
+  const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractionMethod, setExtractionMethod] = useState<'ai' | 'traditional'>('ai');
-  const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [currentFile, setCurrentFile] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [processingStage, setProcessingStage] = useState<'analyzing' | 'extracting' | 'processing' | 'completed'>('analyzing');
+  const [startTime, setStartTime] = useState<Date>(new Date());
+  const [processingTime, setProcessingTime] = useState(0);
+  const [estimatedCost, setEstimatedCost] = useState(0);
   const [extractionSettings, setExtractionSettings] = useState({
     ignoreHeaders: true,
     ignoreFooters: true,
@@ -66,602 +45,369 @@ const UploadSection: React.FC<UploadSectionProps> = ({ onProjectCreate }) => {
     maintainFormatting: true,
     separatePages: true
   });
-  const [currentExtractionProgress, setCurrentExtractionProgress] = useState<{
-    currentPage: number;
-    totalPages: number;
-    currentFile: string;
-    stage: 'analyzing' | 'extracting' | 'processing' | 'completed';
-    processingTime: number;
-  } | null>(null);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const newFiles = await Promise.all(acceptedFiles.map(async (file) => {
-      let estimatedCost = 0;
-      
-      // Estimate pages for PDF files
+  // Update processing time every second when processing
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isProcessing) {
+      interval = setInterval(() => {
+        setProcessingTime(Math.floor((Date.now() - startTime.getTime()) / 1000));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isProcessing, startTime]);
+
+  const calculateTotalPages = async (files: File[]): Promise<number> => {
+    let totalPages = 0;
+    
+    for (const file of files) {
       if (file.type === 'application/pdf') {
         try {
           const pdfjsLib = await import('pdfjs-dist');
           const arrayBuffer = await file.arrayBuffer();
           const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          const pages = pdf.numPages;
-          
-          if (extractionMethod === 'ai') {
-            const costCalculation = monetizationService.calculateExtractionCost(pages);
-            estimatedCost = costCalculation.totalCost;
-          }
+          totalPages += pdf.numPages;
         } catch (error) {
-          console.error('Error estimating pages:', error);
+          console.error(`Error counting pages in ${file.name}:`, error);
+          // Estimate 1 page for non-PDF or error cases
+          totalPages += 1;
         }
+      } else {
+        // Estimate 1 page for non-PDF files
+        totalPages += 1;
       }
-      
-      return {
-        file,
-        id: crypto.randomUUID(),
-        status: 'pending' as const,
-        progress: 0,
-        estimatedCost
-      };
-    }));
+    }
     
-    setUploadedFiles(prev => [...prev, ...newFiles]);
-  }, [extractionMethod]);
+    return totalPages;
+  };
+
+  const updateEstimatedCost = async (files: File[]) => {
+    if (!user || extractionMethod === 'traditional') {
+      setEstimatedCost(0);
+      return;
+    }
+
+    try {
+      const totalPages = await calculateTotalPages(files);
+      const costCalculation = monetizationService.calculateExtractionCost(totalPages);
+      setEstimatedCost(costCalculation.totalCost);
+    } catch (error) {
+      console.error('Error calculating cost:', error);
+      setEstimatedCost(0);
+    }
+  };
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const validFiles = acceptedFiles.filter(file => {
+      const validTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+        'text/plain',
+        'application/epub+zip',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/csv'
+      ];
+      return validTypes.includes(file.type) || file.name.endsWith('.txt');
+    });
+
+    if (validFiles.length !== acceptedFiles.length) {
+      toast({
+        title: "Invalid Files",
+        description: "Some files were rejected. Please upload PDF, DOCX, DOC, TXT, EPUB, XLS, XLSX, or CSV files only.",
+        variant: "destructive"
+      });
+    }
+
+    setFiles(validFiles);
+    await updateEstimatedCost(validFiles);
+  }, [user, extractionMethod, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/msword': ['.doc'],
       'text/plain': ['.txt'],
-      'application/rtf': ['.rtf'],
-      'text/csv': ['.csv'],
+      'application/epub+zip': ['.epub'],
+      'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'text/html': ['.html'],
-      'application/xml': ['.xml'],
-      'application/json': ['.json'],
-      'application/epub+zip': ['.epub']
+      'text/csv': ['.csv']
     },
-    maxSize: 50 * 1024 * 1024,
-    multiple: true
+    disabled: disabled || isProcessing
   });
 
-  const processFile = async (fileData: UploadedFile) => {
-    console.log(`Starting file processing for: ${fileData.file.name} with ${extractionMethod} method`);
-    
-    // Check wallet balance for AI extraction
-    if (extractionMethod === 'ai' && fileData.estimatedCost && fileData.estimatedCost > 0) {
-      const walletCheck = monetizationService.checkWalletBalance(user, fileData.estimatedCost);
-      if (!walletCheck.canProceed) {
+  const processFiles = async () => {
+    if (files.length === 0) return;
+
+    // Check monetization for AI extraction
+    if (extractionMethod === 'ai' && user) {
+      const totalPages = await calculateTotalPages(files);
+      const costCalculation = monetizationService.calculateExtractionCost(totalPages);
+      
+      const balanceCheck = monetizationService.checkWalletBalance(user, costCalculation.totalCost);
+      if (!balanceCheck.canProceed) {
         toast({
           title: "Insufficient Funds",
-          description: walletCheck.message,
+          description: balanceCheck.message,
           variant: "destructive"
         });
-        
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id 
-            ? { ...f, status: 'error', error: walletCheck.message }
-            : f
-        ));
         return;
       }
-      
-      // Deduct cost from wallet
+
+      // Deduct cost upfront for AI extraction
       const deductionSuccess = await monetizationService.deductFromWallet(
         user, 
-        fileData.estimatedCost, 
+        costCalculation.totalCost, 
         updateWallet
       );
-      
+
       if (!deductionSuccess) {
         toast({
           title: "Payment Failed",
-          description: "Unable to process payment. Please try again.",
+          description: "Failed to process payment. Please try again.",
           variant: "destructive"
         });
-        
-        setUploadedFiles(prev => prev.map(f => 
-          f.id === fileData.id 
-            ? { ...f, status: 'error', error: 'Payment processing failed' }
-            : f
-        ));
         return;
       }
-      
+
       toast({
-        title: "Payment Processed",
-        description: `$${fileData.estimatedCost.toFixed(2)} deducted from wallet`,
+        title: "Payment Successful",
+        description: `$${costCalculation.totalCost.toFixed(2)} deducted for AI extraction of ${totalPages} pages.`,
       });
     }
-    
-    setUploadedFiles(prev => prev.map(f => 
-      f.id === fileData.id 
-        ? { ...f, status: 'processing', progress: 10 }
-        : f
-    ));
 
+    setIsProcessing(true);
+    setProgress(0);
+    setStartTime(new Date());
+    setProcessingTime(0);
+    setProcessingStage('analyzing');
+    
+    const processedFiles: Array<{ name: string; content: string; size: number }> = [];
+    
     try {
-      let extractedData;
+      const totalFiles = files.length;
       
-      if (extractionMethod === 'ai' && fileData.file.type === 'application/pdf') {
-        // Set extraction settings for Gemini
-        geminiPdfExtractor.setExtractionSettings(extractionSettings);
-        
-        // Setup progress tracking
-        const startTime = Date.now();
-        setCurrentExtractionProgress({
-          currentPage: 0,
-          totalPages: 0,
-          currentFile: fileData.file.name,
-          stage: 'analyzing',
-          processingTime: 0
-        });
-        
-        const progressInterval = setInterval(() => {
-          setCurrentExtractionProgress(prev => prev ? {
-            ...prev,
-            processingTime: Math.floor((Date.now() - startTime) / 1000)
-          } : null);
-        }, 1000);
-        
-        const onProgress = (page: number, total: number, stage: string) => {
-          setCurrentExtractionProgress({
-            currentPage: page,
-            totalPages: total,
-            currentFile: fileData.file.name,
-            stage: stage as any,
-            processingTime: Math.floor((Date.now() - startTime) / 1000)
-          });
-          
-          // Update file progress
-          const progress = total > 0 ? Math.min((page / total) * 90, 90) : 10;
-          setUploadedFiles(prev => prev.map(f => 
-            f.id === fileData.id 
-              ? { ...f, progress }
-              : f
-          ));
-        };
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setCurrentFile(file.name);
+        setProgress((i / totalFiles) * 100);
         
         try {
-          const result = await geminiPdfExtractor.extractWithGemini(fileData.file, onProgress);
-          extractedData = {
-            text: result.text,
-            metadata: {
-              title: fileData.file.name.split('.')[0],
-              pages: result.metadata.totalPages,
-              wordCount: result.text.split(/\s+/).filter(word => word.length > 0).length,
-              fileSize: (fileData.file.size / 1024 / 1024).toFixed(2) + ' MB',
-              lastModified: new Date(fileData.file.lastModified)
-            }
-          };
-        } finally {
-          clearInterval(progressInterval);
-          setCurrentExtractionProgress(null);
-        }
-      } else {
-        // Use traditional extraction (free)
-        const progressInterval = setInterval(() => {
-          setUploadedFiles(prev => prev.map(f => 
-            f.id === fileData.id && f.progress < 90 && f.status === 'processing'
-              ? { ...f, progress: Math.min(f.progress + 15, 90) }
-              : f
-          ));
-        }, 1000);
-        
-        extractedData = await fileExtractor.extractFromFile(fileData.file, extractionMethod);
-        clearInterval(progressInterval);
-      }
-      
-      console.log(`Extraction completed for ${fileData.file.name}:`, {
-        textLength: extractedData.text?.length,
-        metadata: extractedData.metadata
-      });
-      
-      setUploadedFiles(prev => prev.map(f => 
-        f.id === fileData.id 
-          ? { 
-              ...f, 
-              status: 'completed', 
-              progress: 100,
-              extractedContent: extractedData.text,
-              metadata: extractedData.metadata
-            }
-          : f
-      ));
-
-      return extractedData;
-    } catch (error) {
-      console.error('File processing error:', error);
-      setCurrentExtractionProgress(null);
-      setUploadedFiles(prev => prev.map(f => 
-        f.id === fileData.id 
-          ? { 
-              ...f, 
-              status: 'error', 
-              progress: 0,
-              error: error instanceof Error ? error.message : 'Processing failed'
-            }
-          : f
-      ));
-      throw error;
-    }
-  };
-
-  const processAllFiles = async () => {
-    if (isProcessing) return;
-    
-    setIsProcessing(true);
-    const pendingFiles = uploadedFiles.filter(f => f.status === 'pending');
-    
-    if (pendingFiles.length === 0) {
-      setIsProcessing(false);
-      return;
-    }
-    
-    // Check total wallet balance for AI extraction
-    if (extractionMethod === 'ai') {
-      const totalCost = pendingFiles.reduce((sum, file) => sum + (file.estimatedCost || 0), 0);
-      
-      if (totalCost > 0) {
-        const walletCheck = monetizationService.checkWalletBalance(user, totalCost);
-        if (!walletCheck.canProceed) {
+          let extractedContent = '';
+          
+          if (extractionMethod === 'ai' && file.type === 'application/pdf') {
+            // Configure extraction settings for AI
+            geminiPdfExtractor.setExtractionSettings(extractionSettings);
+            
+            // Use AI extraction with progress callback
+            const result = await geminiPdfExtractor.extractWithGemini(file, (page, total, stage) => {
+              setCurrentPage(page);
+              setTotalPages(total);
+              setProcessingStage(stage as any);
+              
+              // Update overall progress considering current file
+              const fileProgress = total > 0 ? (page / total) * 100 : 0;
+              const overallProgress = ((i / totalFiles) * 100) + (fileProgress / totalFiles);
+              setProgress(Math.min(overallProgress, 100));
+            });
+            
+            extractedContent = result.text;
+          } else {
+            // Use traditional extraction
+            setProcessingStage('extracting');
+            const result = await fileExtractor.extractFromFile(file);
+            extractedContent = result.text;
+          }
+          
+          if (extractedContent.trim()) {
+            processedFiles.push({
+              name: file.name,
+              content: extractedContent,
+              size: file.size
+            });
+          }
+        } catch (error) {
+          console.error(`Error processing file ${file.name}:`, error);
           toast({
-            title: "Insufficient Funds",
-            description: `Total cost: $${totalCost.toFixed(2)}. ${walletCheck.message}`,
+            title: "Processing Error",
+            description: `Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
             variant: "destructive"
           });
-          setIsProcessing(false);
-          return;
         }
       }
-    }
-    
-    console.log(`Processing ${pendingFiles.length} files with ${extractionMethod} method...`);
-    
-    try {
-      for (const fileData of pendingFiles) {
-        await processFile(fileData);
-        await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setProcessingStage('completed');
+      setProgress(100);
+      
+      if (processedFiles.length > 0) {
+        onFilesProcessed(processedFiles);
+        toast({
+          title: "Files Processed Successfully",
+          description: `${processedFiles.length} file(s) processed using ${extractionMethod} extraction.`,
+        });
+      } else {
+        toast({
+          title: "No Content Extracted",
+          description: "No readable content was found in the uploaded files.",
+          variant: "destructive"
+        });
       }
       
-      const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
-      if (completedFiles.length > 0) {
-        console.log('Creating project from completed files...');
-        await createProject(completedFiles);
-      }
     } catch (error) {
       console.error('Error processing files:', error);
+      toast({
+        title: "Processing Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive"
+      });
     } finally {
       setIsProcessing(false);
+      setProgress(0);
+      setCurrentFile('');
+      setCurrentPage(0);
+      setTotalPages(0);
     }
   };
 
-  const createProject = async (completedFiles: UploadedFile[]) => {
-    try {
-      console.log('Creating project from', completedFiles.length, 'files');
-      
-      const combinedContent = completedFiles
-        .map(f => f.extractedContent)
-        .filter(Boolean)
-        .join('\n\n---\n\n');
-
-      if (!combinedContent.trim()) {
-        throw new Error('No content extracted from files');
-      }
-
-      const totalWords = combinedContent.split(/\s+/).filter(word => word.length > 0).length;
-      const totalPages = completedFiles.reduce((sum, f) => sum + (f.metadata?.pages || 1), 0);
-      
-      const firstFile = completedFiles[0];
-      let fileType: 'text' | 'pdf' | 'docx' | 'epub' = 'text';
-      if (firstFile.file.type === 'application/pdf') fileType = 'pdf';
-      else if (firstFile.file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') fileType = 'docx';
-      else if (firstFile.file.type === 'application/epub+zip') fileType = 'epub';
-      
-      const project: TranslationProject = {
-        id: Date.now(),
-        name: completedFiles.length === 1 
-          ? completedFiles[0].file.name.split('.')[0]
-          : `Multi-file Project (${completedFiles.length} files)`,
-        sourceLanguage: 'auto',
-        targetLanguages: [],
-        originalContent: combinedContent,
-        fileType,
-        totalChunks: Math.ceil(totalWords / 1000),
-        completedChunks: 0,
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        progress: 0,
-        settings: {
-          preserveFormatting: true,
-          chunkSize: 1000,
-          maxRetries: 3,
-          translationStyle: 'formal',
-          contextAware: true
-        }
-      };
-
-      console.log('Saving project to database:', project.name);
-      await translationDB.projects.add(project);
-      
-      console.log('Project created successfully, calling onProjectCreate');
-      onProjectCreate(project);
-      
-      setUploadedFiles([]);
-    } catch (error) {
-      console.error('Error creating project:', error);
-      throw error;
-    }
+  const removeFile = (index: number) => {
+    const newFiles = files.filter((_, i) => i !== index);
+    setFiles(newFiles);
+    updateEstimatedCost(newFiles);
   };
 
-  const removeFile = (fileId: string) => {
-    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
-  };
-
-  const retryFile = async (fileId: string) => {
-    const fileData = uploadedFiles.find(f => f.id === fileId);
-    if (fileData) {
-      setUploadedFiles(prev => prev.map(f => 
-        f.id === fileId 
-          ? { ...f, status: 'pending', progress: 0, error: undefined }
-          : f
-      ));
-      
-      try {
-        await processFile(fileData);
-      } catch (error) {
-        console.error('Retry failed:', error);
-      }
-    }
-  };
-
-  const getStatusColor = (status: UploadedFile['status']) => {
-    switch (status) {
-      case 'completed': return 'text-green-400';
-      case 'processing': return 'text-blue-400';
-      case 'error': return 'text-red-400';
-      default: return 'text-yellow-400';
-    }
-  };
-
-  const getStatusIcon = (status: UploadedFile['status']) => {
-    switch (status) {
-      case 'completed': return <CheckCircle className="w-5 h-5 text-green-400" />;
-      case 'processing': return <Loader className="w-5 h-5 text-blue-400 animate-spin" />;
-      case 'error': return <AlertCircle className="w-5 h-5 text-red-400" />;
-      default: return <FileText className="w-5 h-5 text-yellow-400" />;
-    }
-  };
-
-  const totalEstimatedCost = uploadedFiles
-    .filter(f => f.status === 'pending')
-    .reduce((sum, f) => sum + (f.estimatedCost || 0), 0);
+  const canProcess = files.length > 0 && !disabled && !isProcessing;
 
   return (
-    <div className="space-y-6 md:space-y-8 px-4 md:px-0">
-      <div className="text-center">
-        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 md:mb-4">📤 Upload Documents</h2>
-        <p className="text-white/60 text-sm md:text-lg">
-          Upload your documents and configure extraction settings
-        </p>
-      </div>
+    <div className="space-y-6">
+      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <CardContent className="p-6">
+          <div
+            {...getRootProps()}
+            className={`
+              border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer
+              ${isDragActive 
+                ? 'border-purple-400 bg-purple-500/10' 
+                : 'border-white/30 hover:border-white/50'
+              }
+              ${(disabled || isProcessing) ? 'opacity-50 cursor-not-allowed' : ''}
+            `}
+          >
+            <input {...getInputProps()} />
+            <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">
+              {isDragActive ? 'Drop files here' : 'Upload Documents'}
+            </h3>
+            <p className="text-white/60 text-sm">
+              Drop files here or click to browse
+              <br />
+              <span className="text-xs">Supports: PDF, DOCX, DOC, TXT, EPUB, XLS, XLSX, CSV</span>
+            </p>
+          </div>
 
-      {/* Wallet Balance Display */}
-      {user && (
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-green-400" />
-                <span className="text-white">Wallet Balance:</span>
-                <span className="text-white font-bold">${user.walletBalance.toFixed(2)}</span>
-              </div>
-              {totalEstimatedCost > 0 && (
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-yellow-400" />
-                  <span className="text-white/80 text-sm">
-                    Estimated Cost: ${totalEstimatedCost.toFixed(2)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <ExtractionMethodSelector 
-        method={extractionMethod}
-        onMethodChange={setExtractionMethod}
-        disabled={uploadedFiles.some(f => f.status === 'processing') || isProcessing}
-      />
-
-      {extractionMethod === 'ai' && uploadedFiles.length > 0 && uploadedFiles.some(f => f.status === 'pending') && (
-        <ExtractionSettings
-          settings={extractionSettings}
-          onSettingsChange={setExtractionSettings}
-          disabled={isProcessing}
-        />
-      )}
-
-      {currentExtractionProgress && (
-        <ExtractionProgress
-          currentPage={currentExtractionProgress.currentPage}
-          totalPages={currentExtractionProgress.totalPages}
-          currentFile={currentExtractionProgress.currentFile}
-          stage={currentExtractionProgress.stage}
-          processingTime={currentExtractionProgress.processingTime}
-        />
-      )}
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
-          <CardContent className="p-4 md:p-8">
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-2xl p-6 md:p-12 text-center cursor-pointer transition-all duration-300 ${
-                isDragActive
-                  ? 'border-purple-400 bg-purple-400/10'
-                  : 'border-white/30 hover:border-purple-400/50 hover:bg-white/5'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <Upload className="w-12 h-12 md:w-16 md:h-16 text-white/60 mx-auto mb-4" />
-              <h3 className="text-lg md:text-xl font-semibold text-white mb-2">
-                {isDragActive ? 'Drop files here' : 'Drag & drop files or click to browse'}
-              </h3>
-              <p className="text-white/60 mb-4 text-sm md:text-base">
-                Supports PDF, DOCX, TXT, RTF, CSV, XLSX, HTML, XML, JSON, EPUB
-              </p>
-              <p className="text-white/40 text-xs md:text-sm">
-                Maximum file size: 50MB per file
-              </p>
-              {extractionMethod === 'ai' && (
-                <p className="text-yellow-300 text-xs mt-2">
-                  💡 AI extraction costs $0.10 per page
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {uploadedFiles.length > 0 && (
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
-          <CardHeader>
-            <CardTitle className="text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <span>Uploaded Files ({uploadedFiles.length})</span>
-              <div className="flex gap-2">
-                {uploadedFiles.some(f => f.status === 'pending') && (
-                  <Button 
-                    onClick={processAllFiles}
-                    disabled={isProcessing || (totalEstimatedCost > 0 && (!user || user.walletBalance < totalEstimatedCost))}
-                    className="bg-gradient-to-r from-purple-500 to-blue-500 w-full sm:w-auto"
-                  >
-                    {isProcessing ? 'Processing...' : `Process All Files${totalEstimatedCost > 0 ? ` ($${totalEstimatedCost.toFixed(2)})` : ''}`}
-                  </Button>
-                )}
-                {uploadedFiles.some(f => f.status === 'completed') && (
-                  <Button 
-                    onClick={() => {
-                      const completedFiles = uploadedFiles.filter(f => f.status === 'completed');
-                      createProject(completedFiles);
-                    }}
-                    className="bg-gradient-to-r from-green-500 to-blue-500 w-full sm:w-auto"
-                  >
-                    Create Project
-                  </Button>
-                )}
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {uploadedFiles.map((fileData) => (
-                <div key={fileData.id} className="bg-white/5 rounded-xl p-4">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {getStatusIcon(fileData.status)}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{fileData.file.name}</p>
-                        <p className="text-white/60 text-sm">
-                          {(fileData.file.size / 1024 / 1024).toFixed(1)} MB
-                          {fileData.estimatedCost && fileData.estimatedCost > 0 && (
-                            <span className="ml-2 text-yellow-300">
-                              • Cost: ${fileData.estimatedCost.toFixed(2)}
-                            </span>
-                          )}
+          {files.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-white font-medium mb-3">Selected Files:</h4>
+              <div className="space-y-2">
+                {files.map((file, index) => (
+                  <div key={index} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-4 h-4 text-white/60" />
+                      <div>
+                        <p className="text-white text-sm font-medium">{file.name}</p>
+                        <p className="text-white/50 text-xs">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant="outline" className={`border-white/20 ${getStatusColor(fileData.status)}`}>
-                        {fileData.status}
-                      </Badge>
-                      {fileData.extractedContent && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowPreview(showPreview === fileData.id ? null : fileData.id)}
-                          className="border-white/20 text-white hover:bg-white/10"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {fileData.status === 'error' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => retryFile(fileData.id)}
-                          className="border-white/20 text-white hover:bg-white/10"
-                        >
-                          Retry
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => removeFile(fileData.id)}
-                        className="border-white/20 text-white hover:bg-white/10"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={() => removeFile(index)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                      disabled={isProcessing}
+                    >
+                      ×
+                    </Button>
                   </div>
-                  
-                  {fileData.status === 'processing' && (
-                    <Progress value={fileData.progress} className="mb-2" />
-                  )}
-                  
-                  {fileData.error && (
-                    <p className="text-red-400 text-sm mb-2">{fileData.error}</p>
-                  )}
-                  
-                  {fileData.metadata && fileData.status === 'completed' && (
-                    <div className="mt-3 p-3 bg-white/5 rounded-lg border border-white/10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Info className="w-4 h-4 text-blue-400" />
-                        <span className="text-white font-medium">Extraction Results</span>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        <div>
-                          <span className="text-white/60">Pages:</span>
-                          <span className="text-white ml-2">{fileData.metadata.pages || 'N/A'}</span>
-                        </div>
-                        <div>
-                          <span className="text-white/60">Words:</span>
-                          <span className="text-white ml-2">{fileData.metadata.wordCount?.toLocaleString() || 0}</span>
-                        </div>
-                        <div>
-                          <span className="text-white/60">Size:</span>
-                          <span className="text-white ml-2">{fileData.metadata.fileSize}</span>
-                        </div>
-                        <div>
-                          <span className="text-white/60">Method:</span>
-                          <span className="text-white ml-2 capitalize">{extractionMethod}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {showPreview === fileData.id && fileData.extractedContent && (
-                    <div className="mt-3 p-3 bg-white/5 rounded-lg">
-                      <p className="text-white/80 text-sm mb-2">Content Preview:</p>
-                      <div className="max-h-32 overflow-y-auto text-white/60 text-sm bg-black/20 p-2 rounded border">
-                        {fileData.extractedContent.substring(0, 500)}
-                        {fileData.extractedContent.length > 500 && '...'}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          {/* Extraction Settings for AI */}
+          {extractionMethod === 'ai' && files.length > 0 && (
+            <div className="mt-6">
+              <ExtractionSettings
+                settings={extractionSettings}
+                onSettingsChange={setExtractionSettings}
+                disabled={isProcessing}
+              />
+            </div>
+          )}
+
+          {/* Cost Display */}
+          {user && extractionMethod === 'ai' && files.length > 0 && (
+            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-blue-400" />
+                  <span className="text-blue-300 font-medium">AI Extraction Cost</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-blue-300 font-bold">${estimatedCost.toFixed(2)}</div>
+                  <div className="text-xs text-blue-400">
+                    Balance: ${user.walletBalance.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              {user.walletBalance < estimatedCost && (
+                <div className="mt-2 flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Insufficient funds. Please add money to your wallet.</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {canProcess && (
+            <div className="mt-6">
+              <Button
+                onClick={processFiles}
+                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                size="lg"
+                disabled={user && extractionMethod === 'ai' && user.walletBalance < estimatedCost}
+              >
+                {extractionMethod === 'ai' ? (
+                  <>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Process with AI Extraction
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5 mr-2" />
+                    Process Files
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Progress Display */}
+      {isProcessing && (
+        <ExtractionProgress
+          currentPage={currentPage}
+          totalPages={totalPages}
+          currentFile={currentFile}
+          stage={processingStage}
+          processingTime={processingTime}
+        />
       )}
     </div>
   );
