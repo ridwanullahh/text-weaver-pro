@@ -1,3 +1,4 @@
+
 export interface TranslationProject {
   id: string;
   name: string;
@@ -25,7 +26,7 @@ export interface TranslationProject {
 
 export interface TranslationChunk {
   id?: number;
-  projectId: number;
+  projectId: string; // Changed from number to string
   chunkIndex: number;
   originalText: string;
   translations: Record<string, string>; // language code -> translated text
@@ -57,7 +58,7 @@ export interface ExportFormat {
 }
 
 export interface TranslationProgress {
-  projectId: number;
+  projectId: string; // Changed from number to string
   totalChunks: number;
   completedChunks: number;
   errorChunks: number;

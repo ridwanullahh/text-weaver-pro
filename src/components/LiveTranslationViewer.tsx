@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, Languages, CheckCircle, AlertCircle, Loader2, Maximize2, X } from 'lucide-react';
@@ -24,11 +23,11 @@ const LiveTranslationViewer: React.FC<LiveTranslationViewerProps> = ({ project, 
     if (!isActive) return;
 
     const loadChunks = async () => {
-      const projectChunks = await dbUtils.getProjectChunks(project.id!);
+      const projectChunks = await dbUtils.getProjectChunks(project.id);
       setChunks(projectChunks);
       
       // Get current chunk index from translation service
-      const currentIndex = translationService.getCurrentChunkIndex(project.id!);
+      const currentIndex = translationService.getCurrentChunkIndex(project.id);
       setCurrentChunkIndex(currentIndex);
     };
 

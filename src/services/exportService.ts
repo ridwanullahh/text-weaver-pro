@@ -17,7 +17,7 @@ class ExportService {
     callbacks.onProgress(10);
     
     // Get all translated chunks
-    const chunks = await dbUtils.getProjectChunks(project.id!);
+    const chunks = await dbUtils.getProjectChunks(project.id);
     callbacks.onProgress(20);
     
     // Organize translations by language
