@@ -1,3 +1,4 @@
+
 import { TranslationProject, TranslationChunk } from '../types/translation';
 import { dbUtils } from '../utils/database';
 import { aiProviderService } from './aiProviderService';
@@ -23,9 +24,11 @@ class TranslationService {
 
   // Configure PDF.js worker for traditional extraction
   private setupPdfWorker() {
-    if (typeof window !== 'undefined' && !window.pdfjsLib?.GlobalWorkerOptions?.workerSrc) {
+    if (typeof window !== 'undefined') {
       import('pdfjs-dist').then((pdfjsLib) => {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+        if (!pdfjsLib.GlobalWorkerOptions?.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+        }
       });
     }
   }
@@ -54,8 +57,8 @@ class TranslationService {
       const totalTranslations = project.targetLanguages.length * chunks.length;
       const costCalculation = monetizationService.calculateTranslationCost(project.targetLanguages.length, chunks.length);
 
-      // Check if user is logged in and enforce monetization
-      if (user && user.id) {
+      // Check if user is logged in and has proper user ID
+      if (user && user.id && typeof user.id === 'string' && user.id.trim() !== '') {
         // User is properly logged in - check daily free translation limit first
         const dailyCheck = monetizationService.checkDailyTranslationLimit(user);
         
