@@ -49,6 +49,23 @@ const UploadSection: React.FC<UploadSectionProps> = ({
     separatePages: true
   });
 
+  // Configure PDF.js worker on component mount
+  React.useEffect(() => {
+    const setupPdfWorker = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+          console.log('PDF.js worker configured successfully');
+        }
+      } catch (error) {
+        console.error('Error setting up PDF.js worker:', error);
+      }
+    };
+
+    setupPdfWorker();
+  }, []);
+
   // Update processing time every second when processing
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -69,12 +86,19 @@ const UploadSection: React.FC<UploadSectionProps> = ({
       if (file.type === 'application/pdf') {
         try {
           const pdfjsLib = await import('pdfjs-dist');
+          
+          // Ensure worker is configured
+          if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+          }
+          
           const arrayBuffer = await file.arrayBuffer();
           const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
           totalPages += pdf.numPages;
+          console.log(`PDF ${file.name} has ${pdf.numPages} pages`);
         } catch (error) {
           console.error(`Error counting pages in ${file.name}:`, error);
-          // Estimate 1 page for non-PDF or error cases
+          // Estimate 1 page for error cases
           totalPages += 1;
         }
       } else {
@@ -147,7 +171,9 @@ const UploadSection: React.FC<UploadSectionProps> = ({
   const processFiles = async () => {
     if (files.length === 0) return;
 
-    // Check monetization for AI extraction
+    console.log(`Starting file processing using ${extractionMethod} method...`);
+
+    // Check monetization for AI extraction only
     if (extractionMethod === 'ai' && user) {
       const totalPages = await calculateTotalPages(files);
       const costCalculation = monetizationService.calculateExtractionCost(totalPages);
@@ -200,10 +226,13 @@ const UploadSection: React.FC<UploadSectionProps> = ({
         setCurrentFile(file.name);
         setProgress((i / totalFiles) * 100);
         
+        console.log(`Processing file ${i + 1}/${totalFiles}: ${file.name} using ${extractionMethod} method`);
+        
         try {
           let extractedContent = '';
           
           if (extractionMethod === 'ai' && file.type === 'application/pdf') {
+            console.log('Using AI extraction method...');
             // Configure extraction settings for AI
             geminiPdfExtractor.setExtractionSettings(extractionSettings);
             
@@ -221,6 +250,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
             
             extractedContent = result.text;
           } else {
+            console.log('Using traditional extraction method...');
             // Use traditional extraction
             setProcessingStage('extracting');
             const result = await fileExtractor.extractFromFile(file);
@@ -233,6 +263,9 @@ const UploadSection: React.FC<UploadSectionProps> = ({
               content: extractedContent,
               size: file.size
             });
+            console.log(`Successfully extracted content from ${file.name}: ${extractedContent.length} characters`);
+          } else {
+            console.warn(`No content extracted from ${file.name}`);
           }
         } catch (error) {
           console.error(`Error processing file ${file.name}:`, error);
@@ -322,8 +355,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({
               <br />
               <span className="text-xs">Supports: PDF, DOCX, DOC, TXT, EPUB, XLS, XLSX, CSV</span>
               <br />
-              {extractionMethod === 'ai' && (
+              {extractionMethod === 'ai' ? (
                 <span className="text-xs text-purple-300">✨ AI-powered extraction enabled</span>
+              ) : (
+                <span className="text-xs text-green-300">⚡ Fast traditional extraction enabled</span>
               )}
             </p>
           </div>
@@ -380,7 +415,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
             </div>
           )}
 
-          {/* Cost Display */}
+          {/* Cost Display - Only for AI extraction */}
           {user && extractionMethod === 'ai' && files.length > 0 && (
             <div className="mt-6 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl">
               <div className="flex items-center justify-between">
@@ -401,6 +436,19 @@ const UploadSection: React.FC<UploadSectionProps> = ({
                   <span>Insufficient funds. Please add money to your wallet.</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Free Traditional Extraction Notice */}
+          {extractionMethod === 'traditional' && files.length > 0 && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-xl">
+              <div className="flex items-center gap-2 text-green-300">
+                <Zap className="w-4 h-4" />
+                <span className="font-medium">Traditional Extraction - Free & Fast!</span>
+              </div>
+              <p className="text-xs text-green-400 mt-1">
+                No charges for traditional PDF extraction. Process multiple files quickly.
+              </p>
             </div>
           )}
 
