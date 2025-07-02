@@ -28,19 +28,19 @@ const AVAILABLE_PROVIDERS = {
   },
   openai: {
     name: 'OpenAI',
-    models: ['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
+    models: ['gpt-4o', 'gpt-4o-mini'],
     icon: '🧠',
     description: 'OpenAI\'s powerful language models'
   },
   anthropic: {
     name: 'Anthropic Claude',
-    models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
+    models: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
     icon: '🎭',
     description: 'Anthropic\'s advanced AI assistant'
   },
   mistral: {
     name: 'Mistral AI',
-    models: ['mistral-large', 'mistral-medium', 'mistral-small'],
+    models: ['mistral-large-latest', 'mistral-small-latest'],
     icon: '🌪️',
     description: 'European AI with multilingual capabilities'
   }
@@ -116,7 +116,7 @@ const AIProviderSettings = () => {
 
   const testProvider = async (providerId: string) => {
     const config = providers[providerId];
-    if (!config.apiKey) {
+    if (!config || !config.apiKey) {
       toast({
         title: "API Key Required",
         description: "Please enter an API key before testing.",
@@ -127,30 +127,25 @@ const AIProviderSettings = () => {
 
     setIsLoading(true);
     try {
-      // Test the provider with a simple request
-      const testResult = await aiProviderService.testProvider({
+      // Simple test by setting the provider temporarily
+      aiProviderService.setProvider({
         provider: providerId,
         apiKey: config.apiKey,
         model: config.model
       });
 
-      if (testResult.success) {
-        updateProviderConfig(providerId, { enabled: true });
-        toast({
-          title: "Provider Test Successful",
-          description: `${AVAILABLE_PROVIDERS[providerId as keyof typeof AVAILABLE_PROVIDERS].name} is working correctly.`,
-        });
-      } else {
-        toast({
-          title: "Provider Test Failed",
-          description: testResult.error || "Failed to connect to the provider.",
-          variant: "destructive"
-        });
-      }
+      // Test with a simple translation
+      await aiProviderService.translateText("Hello", "en", "es", {} as any);
+
+      updateProviderConfig(providerId, { enabled: true });
+      toast({
+        title: "Provider Test Successful",
+        description: `${AVAILABLE_PROVIDERS[providerId as keyof typeof AVAILABLE_PROVIDERS].name} is working correctly.`,
+      });
     } catch (error) {
       toast({
-        title: "Test Failed",
-        description: "An error occurred while testing the provider.",
+        title: "Provider Test Failed",
+        description: "Failed to connect to the provider. Please check your API key.",
         variant: "destructive"
       });
     } finally {
@@ -187,7 +182,13 @@ const AIProviderSettings = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           {Object.entries(AVAILABLE_PROVIDERS).map(([providerId, providerInfo]) => {
-            const config = providers[providerId] || {};
+            const config = providers[providerId] || {
+              provider: providerId,
+              apiKey: '',
+              model: providerInfo.models[0],
+              enabled: false,
+              isActive: providerId === 'gemini'
+            };
             const status = getProviderStatus(providerId);
             
             return (
