@@ -25,6 +25,7 @@ const TranslationApp = () => {
   const [activeTab, setActiveTab] = useState('upload');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [extractionMethod, setExtractionMethod] = useState<'traditional' | 'ai'>('ai');
 
   useEffect(() => {
     loadProjects();
@@ -58,6 +59,41 @@ const TranslationApp = () => {
   const handleAddProject = () => {
     setActiveTab('upload');
     setCurrentProject(null);
+  };
+
+  const handleFilesProcessed = async (files: Array<{ name: string; content: string; size: number }>) => {
+    try {
+      // Create a new project from the processed files
+      const newProject: TranslationProject = {
+        id: Date.now().toString(),
+        name: `Project_${Date.now()}`,
+        status: 'ready',
+        sourceLanguage: 'auto',
+        targetLanguages: [],
+        totalChunks: files.length,
+        translatedChunks: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        files: files.map((file, index) => ({
+          id: `file_${index}`,
+          name: file.name,
+          size: file.size,
+          content: file.content,
+          type: file.name.split('.').pop() || 'txt',
+          uploadedAt: new Date()
+        }))
+      };
+
+      // Save to database
+      await translationDB.projects.add(newProject);
+      
+      // Update state
+      setCurrentProject(newProject);
+      setProjects(prev => [...prev, newProject]);
+      setActiveTab('translate');
+    } catch (error) {
+      console.error('Error creating project:', error);
+    }
   };
 
   const tabs = [
@@ -193,7 +229,10 @@ const TranslationApp = () => {
             transition={{ duration: 0.3 }}
           >
             {activeTab === 'upload' && (
-              <UploadSection />
+              <UploadSection 
+                onFilesProcessed={handleFilesProcessed}
+                extractionMethod={extractionMethod}
+              />
             )}
             
             {activeTab === 'projects' && (
