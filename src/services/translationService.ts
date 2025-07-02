@@ -1,4 +1,3 @@
-
 import { TranslationProject, TranslationChunk } from '../types/translation';
 import { dbUtils } from '../utils/database';
 import { aiProviderService } from './aiProviderService';
@@ -21,6 +20,15 @@ interface TranslationCallbacks {
 class TranslationService {
   private activeTranslations = new Map<string, boolean>();
   private processingQueue = new Map<string, { chunks: TranslationChunk[], currentIndex: number }>();
+
+  // Configure PDF.js worker for traditional extraction
+  private setupPdfWorker() {
+    if (typeof window !== 'undefined' && !window.pdfjsLib?.GlobalWorkerOptions?.workerSrc) {
+      import('pdfjs-dist').then((pdfjsLib) => {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+      });
+    }
+  }
 
   async startTranslation(
     project: TranslationProject, 
@@ -47,8 +55,8 @@ class TranslationService {
       const costCalculation = monetizationService.calculateTranslationCost(project.targetLanguages.length, chunks.length);
 
       // Check if user is logged in and enforce monetization
-      if (user) {
-        // Check daily free translation limit first
+      if (user && user.id) {
+        // User is properly logged in - check daily free translation limit first
         const dailyCheck = monetizationService.checkDailyTranslationLimit(user);
         
         if (totalTranslations > dailyCheck.remaining) {
@@ -69,11 +77,9 @@ class TranslationService {
             }
           }
         }
-      } else {
-        // For non-logged in users, enforce stricter limits or require login
-        if (totalTranslations > 3) {
-          throw new Error('Please log in to translate more than 3 text segments');
-        }
+      } else if (totalTranslations > 3) {
+        // For non-logged in users or users without proper ID, enforce stricter limits
+        throw new Error('Please log in to translate more than 3 text segments');
       }
 
       // Update project status and ensure originalContent is set
