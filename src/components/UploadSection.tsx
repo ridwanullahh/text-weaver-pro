@@ -10,7 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { monetizationService } from '@/services/monetizationService';
 import ExtractionSettings from './ExtractionSettings';
 import ExtractionProgress from './ExtractionProgress';
-import { Upload, FileText, Zap, AlertCircle, Wallet, Plus } from 'lucide-react';
+import ExtractionMethodSelector from './ExtractionMethodSelector';
+import { Upload, FileText, Zap, AlertCircle, Wallet, Plus, Sparkles } from 'lucide-react';
 import { geminiPdfExtractor } from '@/services/geminiPdfExtractor';
 import { fileExtractor } from '@/services/fileExtractor';
 
@@ -18,12 +19,14 @@ interface UploadSectionProps {
   onFilesProcessed: (files: Array<{ name: string; content: string; size: number }>) => void;
   disabled?: boolean;
   extractionMethod: 'traditional' | 'ai';
+  onExtractionMethodChange?: (method: 'traditional' | 'ai') => void;
 }
 
 const UploadSection: React.FC<UploadSectionProps> = ({ 
   onFilesProcessed, 
   disabled = false,
-  extractionMethod 
+  extractionMethod,
+  onExtractionMethodChange
 }) => {
   const { toast } = useToast();
   const { user, updateWallet } = useAuth();
@@ -284,6 +287,15 @@ const UploadSection: React.FC<UploadSectionProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Extraction Method Selector */}
+      {onExtractionMethodChange && (
+        <ExtractionMethodSelector
+          method={extractionMethod}
+          onMethodChange={onExtractionMethodChange}
+          disabled={isProcessing}
+        />
+      )}
+
       <Card className="bg-white/10 backdrop-blur-md border-white/20">
         <CardContent className="p-6">
           <div
@@ -298,7 +310,10 @@ const UploadSection: React.FC<UploadSectionProps> = ({
             `}
           >
             <input {...getInputProps()} />
-            <Upload className="w-12 h-12 text-white/60 mx-auto mb-4" />
+            <div className="flex items-center justify-center mb-4">
+              <Upload className="w-12 h-12 text-white/60 mr-2" />
+              {extractionMethod === 'ai' && <Sparkles className="w-6 h-6 text-purple-400" />}
+            </div>
             <h3 className="text-lg font-semibold text-white mb-2">
               {isDragActive ? 'Drop files here' : 'Upload Documents'}
             </h3>
@@ -306,21 +321,36 @@ const UploadSection: React.FC<UploadSectionProps> = ({
               Drop files here or click to browse
               <br />
               <span className="text-xs">Supports: PDF, DOCX, DOC, TXT, EPUB, XLS, XLSX, CSV</span>
+              <br />
+              {extractionMethod === 'ai' && (
+                <span className="text-xs text-purple-300">✨ AI-powered extraction enabled</span>
+              )}
             </p>
           </div>
 
           {files.length > 0 && (
             <div className="mt-6">
-              <h4 className="text-white font-medium mb-3">Selected Files:</h4>
-              <div className="space-y-2">
+              <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                Selected Files:
+                <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full">
+                  {files.length} file{files.length > 1 ? 's' : ''}
+                </span>
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {files.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                  <motion.div 
+                    key={index} 
+                    className="flex items-center justify-between bg-white/5 rounded-lg p-3 border border-white/10"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
                     <div className="flex items-center gap-3">
                       <FileText className="w-4 h-4 text-white/60" />
                       <div>
                         <p className="text-white text-sm font-medium">{file.name}</p>
                         <p className="text-white/50 text-xs">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                          {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type.split('/')[1]?.toUpperCase()}
                         </p>
                       </div>
                     </div>
@@ -333,7 +363,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
                     >
                       ×
                     </Button>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -352,7 +382,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
 
           {/* Cost Display */}
           {user && extractionMethod === 'ai' && files.length > 0 && (
-            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-blue-400" />
@@ -374,23 +404,28 @@ const UploadSection: React.FC<UploadSectionProps> = ({
             </div>
           )}
 
+          {/* Processing Button */}
           {canProcess && (
             <div className="mt-6">
               <Button
                 onClick={processFiles}
-                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                className={`w-full ${
+                  extractionMethod === 'ai' 
+                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600' 
+                    : 'bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600'
+                }`}
                 size="lg"
                 disabled={user && extractionMethod === 'ai' && user.walletBalance < estimatedCost}
               >
                 {extractionMethod === 'ai' ? (
                   <>
-                    <Zap className="w-5 h-5 mr-2" />
+                    <Sparkles className="w-5 h-5 mr-2" />
                     Process with AI Extraction
                   </>
                 ) : (
                   <>
-                    <FileText className="w-5 h-5 mr-2" />
-                    Process Files
+                    <Zap className="w-5 h-5 mr-2" />
+                    Process with Traditional Extraction
                   </>
                 )}
               </Button>

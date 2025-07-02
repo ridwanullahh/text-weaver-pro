@@ -1,3 +1,4 @@
+
 import { TranslationProject, TranslationChunk } from '../types/translation';
 import { dbUtils } from '../utils/database';
 import { aiProviderService } from './aiProviderService';
@@ -34,8 +35,14 @@ class TranslationService {
     this.activeTranslations.set(project.id, true);
     
     try {
+      // Ensure we have content to translate
+      const contentToTranslate = this.getProjectContent(project);
+      if (!contentToTranslate || contentToTranslate.trim().length === 0) {
+        throw new Error('No content found to translate. Please ensure files were processed correctly.');
+      }
+
       // Calculate translation cost
-      const chunks = this.splitIntoChunks(project.originalContent, project.settings?.chunkSize || 1000);
+      const chunks = this.splitIntoChunks(contentToTranslate, project.settings?.chunkSize || 1000);
       const totalTranslations = project.targetLanguages.length * chunks.length;
       const costCalculation = monetizationService.calculateTranslationCost(project.targetLanguages.length, chunks.length);
 
@@ -69,8 +76,11 @@ class TranslationService {
         }
       }
 
-      // Update project status
-      await dbUtils.updateProject(project.id, { status: 'processing' });
+      // Update project status and ensure originalContent is set
+      await dbUtils.updateProject(project.id, { 
+        status: 'processing',
+        originalContent: contentToTranslate
+      });
       
       // Create or retrieve existing chunks
       const existingChunks = await dbUtils.getProjectChunks(project.id);
@@ -250,6 +260,23 @@ class TranslationService {
     return this.processingQueue.get(projectId)?.currentIndex || 0;
   }
 
+  private getProjectContent(project: TranslationProject): string {
+    // First check if originalContent exists
+    if (project.originalContent && project.originalContent.trim().length > 0) {
+      return project.originalContent;
+    }
+    
+    // If not, try to get content from files
+    if (project.files && project.files.length > 0) {
+      return project.files
+        .map(file => file.content)
+        .filter(content => content && content.trim().length > 0)
+        .join('\n\n');
+    }
+    
+    return '';
+  }
+
   private async waitForRateLimit(): Promise<void> {
     const rateLimitStatus = aiProviderService.getRateLimitStatus();
     
@@ -297,18 +324,31 @@ class TranslationService {
   }
 
   private splitIntoChunks(text: string, chunkSize: number): string[] {
+    // Add null/undefined check
+    if (!text || typeof text !== 'string') {
+      console.error('Invalid text provided for chunking:', text);
+      return [];
+    }
+
     const chunks: string[] = [];
     let currentChunk = '';
     
     // Split by sentences to maintain context
-    const sentences = text.split(/[.!?]+/);
+    const sentences = text.split(/[.!?]+/).filter(sentence => sentence.trim().length > 0);
+    
+    if (sentences.length === 0) {
+      return [text]; // Return original text if no sentences found
+    }
     
     for (const sentence of sentences) {
-      if ((currentChunk + sentence).length > chunkSize && currentChunk) {
+      const trimmedSentence = sentence.trim();
+      if (!trimmedSentence) continue;
+      
+      if ((currentChunk + trimmedSentence).length > chunkSize && currentChunk) {
         chunks.push(currentChunk.trim());
-        currentChunk = sentence;
+        currentChunk = trimmedSentence + '.';
       } else {
-        currentChunk += sentence + '.';
+        currentChunk += (currentChunk ? ' ' : '') + trimmedSentence + '.';
       }
     }
     
@@ -316,7 +356,7 @@ class TranslationService {
       chunks.push(currentChunk.trim());
     }
     
-    return chunks;
+    return chunks.length > 0 ? chunks : [text];
   }
 
   private async createChunks(projectId: string, textChunks: string[]): Promise<TranslationChunk[]> {
