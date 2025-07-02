@@ -1,4 +1,3 @@
-
 import { TranslationProject, ExportFormat } from '../types/translation';
 import { dbUtils } from '../utils/database';
 import JSZip from 'jszip';
@@ -32,6 +31,42 @@ class ExportService {
     // Create and download archive
     await this.createDownload(files, project.name, format);
     callbacks.onProgress(100);
+  }
+
+  async exportToFormat(content: string, format: 'docx' | 'pdf' | 'txt' | 'json', filename: string) {
+    let fileContent: Blob;
+    let fileExtension: string;
+    
+    switch (format) {
+      case 'txt':
+        fileContent = new Blob([content], { type: 'text/plain' });
+        fileExtension = 'txt';
+        break;
+        
+      case 'json':
+        const jsonContent = JSON.stringify({ content }, null, 2);
+        fileContent = new Blob([jsonContent], { type: 'application/json' });
+        fileExtension = 'json';
+        break;
+        
+      case 'pdf':
+        // For now, create as text file with PDF extension
+        fileContent = new Blob([content], { type: 'application/pdf' });
+        fileExtension = 'pdf';
+        break;
+        
+      case 'docx':
+        // For now, create as text file with DOCX extension
+        fileContent = new Blob([content], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        fileExtension = 'docx';
+        break;
+        
+      default:
+        fileContent = new Blob([content], { type: 'text/plain' });
+        fileExtension = 'txt';
+    }
+    
+    saveAs(fileContent, `${filename}.${fileExtension}`);
   }
 
   private organizeTranslations(chunks: any[], languages: string[]) {

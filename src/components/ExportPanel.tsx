@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -327,7 +326,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ project, onExportComplete }) 
             <Checkbox
               id="include-original"
               checked={includeOriginal}
-              onCheckedChange={setIncludeOriginal}
+              onCheckedChange={(checked) => setIncludeOriginal(checked === true)}
               className="border-white/30 data-[state=checked]:bg-purple-500"
             />
             <Label htmlFor="include-original" className="text-white/80 text-sm">
@@ -339,7 +338,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ project, onExportComplete }) 
             <Checkbox
               id="separate-files"
               checked={separateFiles}
-              onCheckedChange={setSeparateFiles}
+              onCheckedChange={(checked) => setSeparateFiles(checked === true)}
               className="border-white/30 data-[state=checked]:bg-purple-500"
             />
             <Label htmlFor="separate-files" className="text-white/80 text-sm">

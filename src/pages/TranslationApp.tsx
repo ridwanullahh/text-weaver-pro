@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +12,7 @@ import TranslationQuality from '../components/TranslationQuality';
 import LiveTranslationViewer from '../components/LiveTranslationViewer';
 import AIProviderSettings from '../components/settings/AIProviderSettings';
 import MobileNav from '../components/mobile/MobileNav';
+import FloatingAddProject from '../components/FloatingAddProject';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
 import { LogOut, Settings, Home } from 'lucide-react';
@@ -53,6 +53,11 @@ const TranslationApp = () => {
   const handleProjectSelect = (project: TranslationProject) => {
     setCurrentProject(project);
     setActiveTab('translate');
+  };
+
+  const handleAddProject = () => {
+    setActiveTab('upload');
+    setCurrentProject(null);
   };
 
   const tabs = [
@@ -188,7 +193,7 @@ const TranslationApp = () => {
             transition={{ duration: 0.3 }}
           >
             {activeTab === 'upload' && (
-              <UploadSection onProjectCreate={handleProjectCreate} />
+              <UploadSection />
             )}
             
             {activeTab === 'projects' && (
@@ -318,6 +323,14 @@ const TranslationApp = () => {
             )}
           </motion.div>
         </div>
+
+        {/* Floating Add Project Button */}
+        {projects.length > 0 && activeTab !== 'upload' && (
+          <FloatingAddProject 
+            onAddProject={handleAddProject}
+            activeProjects={projects.filter(p => p.status === 'processing').length}
+          />
+        )}
       </div>
     </div>
   );
