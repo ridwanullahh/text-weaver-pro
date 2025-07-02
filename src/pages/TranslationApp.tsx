@@ -11,11 +11,13 @@ import TranslationAnalytics from '../components/TranslationAnalytics';
 import TranslationQuality from '../components/TranslationQuality';
 import LiveTranslationViewer from '../components/LiveTranslationViewer';
 import AIProviderSettings from '../components/settings/AIProviderSettings';
+import SmartTranslationSuggestions from '../components/SmartTranslationSuggestions';
+import BatchOperations from '../components/BatchOperations';
 import MobileNav from '../components/mobile/MobileNav';
 import FloatingAddProject from '../components/FloatingAddProject';
 import { translationDB } from '../utils/database';
 import { TranslationProject } from '../types/translation';
-import { LogOut, Settings, Home } from 'lucide-react';
+import { LogOut, Settings, Home, Sparkles, Zap, Brain, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const TranslationApp = () => {
@@ -63,17 +65,24 @@ const TranslationApp = () => {
 
   const handleFilesProcessed = async (files: Array<{ name: string; content: string; size: number }>) => {
     try {
+      // Combine all file contents
+      const combinedContent = files.map(file => file.content).join('\n\n');
+      
       // Create a new project from the processed files
       const newProject: TranslationProject = {
         id: Date.now().toString(),
-        name: `Project_${Date.now()}`,
-        status: 'pending',
+        name: files.length === 1 ? files[0].name.split('.')[0] : `Multi-File Project_${Date.now()}`,
+        status: 'ready',
         sourceLanguage: 'auto',
         targetLanguages: [],
-        totalChunks: files.length,
+        totalChunks: Math.ceil(combinedContent.split(' ').length / 1000), // Rough estimate
         translatedChunks: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
+        originalContent: combinedContent, // Set the original content properly
+        fileType: files[0].name.split('.').pop() as any || 'txt',
+        completedChunks: 0,
+        progress: 0,
         files: files.map((file, index) => ({
           id: `file_${index}`,
           name: file.name,
@@ -96,10 +105,19 @@ const TranslationApp = () => {
     }
   };
 
+  const handleBatchOperation = async (action: string, projectIds: string[]) => {
+    console.log(`Executing batch operation: ${action} on projects:`, projectIds);
+    // Here you would implement the actual batch operations
+    // For now, just reload projects to reflect any changes
+    await loadProjects();
+  };
+
   const tabs = [
     { id: 'upload', label: 'Upload', icon: '📤' },
     { id: 'projects', label: 'Projects', icon: '📁' },
     { id: 'translate', label: 'Translate', icon: '🔄' },
+    { id: 'suggestions', label: 'AI Assist', icon: '🧠' },
+    { id: 'batch', label: 'Batch Ops', icon: '📦' },
     { id: 'live', label: 'Live View', icon: '👁️' },
     { id: 'analytics', label: 'Analytics', icon: '📈' },
     { id: 'quality', label: 'Quality', icon: '⭐' },
@@ -157,6 +175,34 @@ const TranslationApp = () => {
               <div>
                 <h1 className="text-lg md:text-2xl font-bold text-white">TextWeaver Pro</h1>
                 <p className="text-white/60 text-xs md:text-sm hidden sm:block">Professional Document Translation</p>
+              </div>
+            </div>
+            
+            {/* Extraction Method Toggle */}
+            <div className="hidden md:flex items-center gap-4 mr-4">
+              <div className="flex items-center bg-white/5 rounded-lg p-1 border border-white/20">
+                <button
+                  onClick={() => setExtractionMethod('traditional')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                    extractionMethod === 'traditional'
+                      ? 'bg-green-500 text-white'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <Zap className="w-3 h-3 mr-1 inline" />
+                  Fast
+                </button>
+                <button
+                  onClick={() => setExtractionMethod('ai')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                    extractionMethod === 'ai'
+                      ? 'bg-purple-500 text-white'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3 mr-1 inline" />
+                  AI
+                </button>
               </div>
             </div>
             
@@ -232,6 +278,7 @@ const TranslationApp = () => {
               <UploadSection 
                 onFilesProcessed={handleFilesProcessed}
                 extractionMethod={extractionMethod}
+                onExtractionMethodChange={setExtractionMethod}
               />
             )}
             
@@ -269,6 +316,59 @@ const TranslationApp = () => {
                 >
                   View Projects
                 </motion.button>
+              </div>
+            )}
+
+            {/* New AI Suggestions Tab */}
+            {activeTab === 'suggestions' && currentProject && (
+              <div className="px-4 md:px-0">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">🧠 AI Translation Assistant</h2>
+                  <p className="text-white/60 text-sm md:text-lg">
+                    Smart suggestions to improve your translation workflow
+                  </p>
+                </div>
+                <SmartTranslationSuggestions 
+                  project={currentProject}
+                  onApplySuggestion={(suggestionId) => {
+                    console.log('Applied suggestion:', suggestionId);
+                    // Handle suggestion application
+                  }}
+                />
+              </div>
+            )}
+
+            {activeTab === 'suggestions' && !currentProject && (
+              <div className="text-center py-12 md:py-16 px-4">
+                <div className="text-4xl md:text-6xl mb-4">🧠</div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-4">No Project Selected</h3>
+                <p className="text-white/60 text-sm md:text-lg mb-6 md:mb-8 max-w-md mx-auto">
+                  Select a project to get AI-powered translation suggestions
+                </p>
+                <motion.button
+                  onClick={() => setActiveTab('projects')}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 md:px-8 py-3 rounded-2xl font-medium hover:shadow-lg transition-all duration-300"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Select Project
+                </motion.button>
+              </div>
+            )}
+
+            {/* New Batch Operations Tab */}
+            {activeTab === 'batch' && (
+              <div className="px-4 md:px-0">
+                <div className="text-center mb-6 md:mb-8">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">📦 Batch Operations</h2>
+                  <p className="text-white/60 text-sm md:text-lg">
+                    Manage multiple translation projects efficiently
+                  </p>
+                </div>
+                <BatchOperations 
+                  projects={projects}
+                  onBatchAction={handleBatchOperation}
+                />
               </div>
             )}
 
