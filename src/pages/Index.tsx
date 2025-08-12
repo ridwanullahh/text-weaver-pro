@@ -1,168 +1,269 @@
 
 import React, { useState, useEffect } from 'react';
+import MobileLayout from '@/components/layout/MobileLayout';
 import { motion } from 'framer-motion';
-import { useAuth } from '@/hooks/useAuth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import WalletManager from '../components/wallet/WalletManager';
-import UserDashboard from '../components/dashboard/UserDashboard';
-import UserSettings from '../components/settings/UserSettings';
-import MobileNav from '../components/mobile/MobileNav';
-import { LogOut, Settings, Upload, FileText } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { monetizationService } from '@/services/monetizationService';
 import { Link } from 'react-router-dom';
+import { 
+  FileText, 
+  Globe, 
+  Zap, 
+  Wallet, 
+  TrendingUp, 
+  Clock,
+  ArrowRight,
+  Crown,
+  Plus
+} from 'lucide-react';
 
 const Index = () => {
-  const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { user, updateUser } = useAuth();
+  const { toast } = useToast();
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [planLimits, setPlanLimits] = useState(null);
 
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'wallet', label: 'Wallet', icon: '💰' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' }
+  useEffect(() => {
+    if (user?.plan) {
+      const limits = monetizationService.getPlanLimits(user.plan);
+      setPlanLimits(limits);
+    }
+  }, [user?.plan]);
+
+  const handleUpgradePlan = () => {
+    toast({
+      title: "Upgrade Available",
+      description: "Check out our pricing plans to unlock more features!",
+    });
+  };
+
+  const getUsagePercentage = (used: number, limit: number) => {
+    if (limit === -1) return 0; // Unlimited
+    return Math.min((used / limit) * 100, 100);
+  };
+
+  const planColors = {
+    free: 'bg-gray-100 text-gray-800',
+    basic: 'bg-blue-100 text-blue-800',
+    pro: 'bg-purple-100 text-purple-800',
+    enterprise: 'bg-amber-100 text-amber-800'
+  };
+
+  const stats = [
+    {
+      icon: <FileText className="w-5 h-5 text-primary" />,
+      label: 'Documents Processed',
+      value: user?.totalDocuments || 0,
+      change: '+12%'
+    },
+    {
+      icon: <Globe className="w-5 h-5 text-primary" />,
+      label: 'Languages Used',
+      value: user?.languagesUsed || 0,
+      change: '+5%'
+    },
+    {
+      icon: <Zap className="w-5 h-5 text-primary" />,
+      label: 'Pages This Month',
+      value: user?.monthlyPagesUsed || 0,
+      change: planLimits?.pages === -1 ? 'Unlimited' : `/${planLimits?.pages || 0}`
+    },
+    {
+      icon: <Wallet className="w-5 h-5 text-primary" />,
+      label: 'Wallet Balance',
+      value: `$${(user?.walletBalance || 0).toFixed(2)}`,
+      change: ''
+    }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900">
-      {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse delay-1000"></div>
-        <div className="absolute top-40 left-40 w-60 h-60 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse delay-500"></div>
-      </div>
-
-      <div className="relative z-10">
-        {/* Header with user info */}
-        <div className="bg-black/20 backdrop-blur-md border-b border-white/10">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="text-xl md:text-2xl">🌐</div>
-              <div>
-                <h1 className="text-lg md:text-2xl font-bold text-white">TextWeaver Pro Dashboard</h1>
-                <p className="text-white/60 text-xs md:text-sm hidden sm:block">
-                  Welcome back, {user?.fullName || user?.email}
-                </p>
-              </div>
-            </div>
-            
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-white text-sm">Wallet Balance</p>
-                <p className="text-white font-bold">${user?.walletBalance.toFixed(2) || '0.00'}</p>
-              </div>
-              {user?.roles?.includes('admin') && (
-                <Link to="/admin">
-                  <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10">
-                    <Settings className="w-4 h-4 mr-1" />
-                    Admin
-                  </Button>
-                </Link>
-              )}
-              <Button 
-                onClick={logout} 
-                variant="outline" 
-                size="sm"
-                className="border-white/20 text-white hover:bg-white/10"
-              >
-                <LogOut className="w-4 h-4 mr-1" />
-                Logout
-              </Button>
-            </div>
-            
-            {/* Mobile Navigation */}
-            <MobileNav />
-          </div>
-        </div>
-        
-        <div className="container mx-auto px-4 py-4 md:py-8">
-          {/* Quick Actions */}
-          <div className="mb-6 md:mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-2xl mx-auto">
-              <Link to="/app">
-                <motion.div
-                  className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-6 md:p-8 text-center hover:bg-white/15 transition-all duration-300 cursor-pointer"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="text-4xl md:text-6xl mb-4">📤</div>
-                  <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Translation App</h3>
-                  <p className="text-white/60 text-sm md:text-base">
-                    Upload documents and start translating
-                  </p>
-                </motion.div>
-              </Link>
-              
-              <motion.div
-                onClick={() => setActiveTab('wallet')}
-                className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-6 md:p-8 text-center hover:bg-white/15 transition-all duration-300 cursor-pointer"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="text-4xl md:text-6xl mb-4">💰</div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Manage Wallet</h3>
-                <p className="text-white/60 text-sm md:text-base">
-                  Fund your account and view transactions
-                </p>
-              </motion.div>
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex justify-center mb-6 md:mb-8 overflow-x-auto">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-2 border border-white/20 min-w-max">
-              <div className="flex space-x-1 md:space-x-2">
-                {tabs.map((tab) => (
-                  <motion.button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`px-3 md:px-6 py-2 md:py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap text-sm md:text-base ${
-                      activeTab === tab.id
-                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
-                        : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <span className="text-sm md:text-lg">{tab.icon}</span>
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Tab Content */}
+    <MobileLayout>
+      <div className="space-y-6">
+        {/* Welcome Section */}
+        <section className="px-4 py-6">
           <motion.div
-            key={activeTab}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="px-4 md:px-0"
+            className="text-center"
           >
-            {activeTab === 'dashboard' && (
-              <UserDashboard />
-            )}
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              Welcome back, {user?.email?.split('@')[0] || 'User'}! 👋
+            </h1>
+            <p className="text-muted-foreground mb-4">
+              Ready to translate some documents today?
+            </p>
+            
+            <div className="flex items-center justify-center space-x-2 mb-4">
+              <Badge className={`${planColors[user?.plan as keyof typeof planColors] || planColors.free} flex items-center space-x-1`}>
+                {user?.plan === 'enterprise' && <Crown className="w-3 h-3" />}
+                <span className="capitalize">{user?.plan || 'Free'} Plan</span>
+              </Badge>
+              
+              {user?.plan !== 'enterprise' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUpgradePlan}
+                  className="text-primary border-primary"
+                >
+                  Upgrade
+                </Button>
+              )}
+            </div>
 
-            {activeTab === 'settings' && (
-              <UserSettings />
-            )}
-
-            {activeTab === 'wallet' && (
-              <div>
-                <div className="text-center mb-6 md:mb-8">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">💰 Wallet Management</h2>
-                  <p className="text-white/60 text-sm md:text-lg">
-                    Manage your translation credits
-                  </p>
-                </div>
-                <div className="max-w-md mx-auto">
-                  <WalletManager />
-                </div>
-              </div>
-            )}
+            <Link to="/app">
+              <Button size="lg" className="gradient-primary text-white shadow-lg">
+                <Plus className="w-4 h-4 mr-2" />
+                Start Translating
+              </Button>
+            </Link>
           </motion.div>
-        </div>
+        </section>
+
+        {/* Stats Overview */}
+        <section className="px-4">
+          <div className="grid grid-cols-2 gap-4">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * index }}
+              >
+                <Card className="border-border/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-3 mb-2">
+                      {stat.icon}
+                      <span className="text-xs text-muted-foreground">{stat.label}</span>
+                    </div>
+                    <div className="text-lg font-bold text-foreground">{stat.value}</div>
+                    {stat.change && (
+                      <div className="text-xs text-muted-foreground">{stat.change}</div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        {/* Usage Progress */}
+        {planLimits && (
+          <section className="px-4">
+            <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <span>Monthly Usage</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>Pages</span>
+                    <span>
+                      {user?.monthlyPagesUsed || 0}
+                      {planLimits.pages === -1 ? ' (Unlimited)' : ` / ${planLimits.pages}`}
+                    </span>
+                  </div>
+                  {planLimits.pages !== -1 && (
+                    <Progress 
+                      value={getUsagePercentage(user?.monthlyPagesUsed || 0, planLimits.pages)} 
+                      className="h-2"
+                    />
+                  )}
+                </div>
+                
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>Translations</span>
+                    <span>
+                      {user?.monthlyTranslationsUsed || 0}
+                      {planLimits.translations === -1 ? ' (Unlimited)' : ` / ${planLimits.translations}`}
+                    </span>
+                  </div>
+                  {planLimits.translations !== -1 && (
+                    <Progress 
+                      value={getUsagePercentage(user?.monthlyTranslationsUsed || 0, planLimits.translations)} 
+                      className="h-2"
+                    />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
+        {/* Quick Actions */}
+        <section className="px-4">
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Link to="/app" className="block">
+                <Button variant="outline" className="w-full justify-start" size="lg">
+                  <FileText className="w-4 h-4 mr-3" />
+                  Upload & Translate Document
+                </Button>
+              </Link>
+              
+              <Link to="/pricing" className="block">
+                <Button variant="outline" className="w-full justify-start" size="lg">
+                  <Crown className="w-4 h-4 mr-3" />
+                  View Pricing Plans
+                </Button>
+              </Link>
+              
+              <Button variant="outline" className="w-full justify-start" size="lg">
+                <Wallet className="w-4 h-4 mr-3" />
+                Add Wallet Credit
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Recent Activity */}
+        <section className="px-4 pb-8">
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <Clock className="w-5 h-5 text-primary" />
+                <span>Recent Activity</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentActivity.length > 0 ? (
+                <div className="space-y-3">
+                  {recentActivity.map((activity, index) => (
+                    <div key={index} className="flex items-center space-x-3 p-2 rounded-lg bg-muted/30">
+                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Document translated</p>
+                        <p className="text-xs text-muted-foreground">2 hours ago</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No recent activity</p>
+                  <p className="text-sm text-muted-foreground">Start translating to see your history here</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
       </div>
-    </div>
+    </MobileLayout>
   );
 };
 
