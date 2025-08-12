@@ -43,11 +43,12 @@ class ExportService {
         fileExtension = 'txt';
         break;
         
-      case 'json':
+      case 'json': {
         const jsonContent = JSON.stringify({ content }, null, 2);
         fileContent = new Blob([jsonContent], { type: 'application/json' });
         fileExtension = 'json';
         break;
+      }
         
       case 'pdf':
         // For now, create as text file with PDF extension
@@ -102,11 +103,12 @@ class ExportService {
           files[`${fileName}.txt`] = fileContent;
           break;
           
-        case 'html':
+        case 'html': {
           const htmlContent = this.generateHTML(content, project.name, language);
           fileContent = new Blob([htmlContent], { type: 'text/html' });
           files[`${fileName}.html`] = fileContent;
           break;
+        }
           
         case 'pdf':
           // This would require a PDF generation library

@@ -99,7 +99,7 @@ class TranslationService {
       this.processingQueue.set(project.id, { chunks: chunksToProcess, currentIndex: 0 });
       
       let completedChunks = 0;
-      let totalChunks = chunksToProcess.length * project.targetLanguages.length;
+      const totalChunks = chunksToProcess.length * project.targetLanguages.length;
       let tokensUsed = 0;
       const startTime = new Date();
       

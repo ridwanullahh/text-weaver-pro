@@ -29,13 +29,104 @@ interface User {
   isActive: boolean;
 }
 
+interface InviteCode {
+  id: string;
+  uid: string;
+  code: string;
+  email: string;
+  used: boolean;
+  usedBy?: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+interface BlogPost {
+  id: string;
+  uid: string;
+  title: string;
+  content: string;
+  excerpt: string;
+  author: string;
+  publishedAt: string;
+  updatedAt: string;
+  tags: string[];
+  status: 'draft' | 'published';
+}
+
+interface Documentation {
+  id: string;
+  uid: string;
+  title: string;
+  content: string;
+  category: string;
+  order: number;
+  updatedAt: string;
+}
+
+interface Transaction {
+  id: string;
+  uid: string;
+  userId: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  description: string;
+  reference: string;
+  status: 'pending' | 'completed' | 'failed';
+  createdAt: string;
+}
+
+interface InviteRequest {
+  id: string;
+  uid: string;
+  email: string;
+  fullName: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface DatabaseSchema {
   users: User[];
-  invite_codes: any[];
-  blog_posts: any[];
-  documentation: any[];
-  transactions: any[];
-  invite_requests: any[];
+  invite_codes: InviteCode[];
+  blog_posts: BlogPost[];
+  documentation: Documentation[];
+  transactions: Transaction[];
+  invite_requests: InviteRequest[];
+}
+
+interface SessionData {
+  token: string;
+  user: User;
+  created: number;
+  expires: number;
+}
+
+interface UserProfile {
+  fullName: string;
+}
+
+interface GitHubFileResponse {
+  content?: string;
+  sha?: string;
+  name?: string;
+  path?: string;
+  size?: number;
+  url?: string;
+  html_url?: string;
+  git_url?: string;
+  download_url?: string;
+  type?: string;
+  _links?: {
+    self?: string;
+    git?: string;
+    html?: string;
+  };
+}
+
+interface GitHubError {
+  message: string;
+  documentation_url?: string;
 }
 
 class UniversalSDK {
@@ -44,8 +135,8 @@ class UniversalSDK {
   private token: string;
   private branch: string;
   private basePath: string;
-  private cloudinary: any;
-  private sessionStore: Record<string, any> = {};
+  private cloudinary: Record<string, string>;
+  private sessionStore: Record<string, SessionData>;
 
   constructor(config: UniversalSDKConfig) {
     this.owner = config.owner;
@@ -54,6 +145,7 @@ class UniversalSDK {
     this.branch = config.branch || 'main';
     this.basePath = config.basePath || 'db';
     this.cloudinary = config.cloudinary || {};
+    this.sessionStore = {};
     
     console.log('UniversalSDK initialized with:', {
       owner: this.owner,
@@ -72,7 +164,7 @@ class UniversalSDK {
     };
   }
 
-  private async request(path: string, method: string = 'GET', body: any = null): Promise<any> {
+  private async request(path: string, method: string = 'GET', body: Record<string, unknown> | null = null): Promise<GitHubFileResponse | null> {
     const url = `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}`;
     
     console.log(`GitHub API ${method} request to:`, url);
@@ -120,7 +212,7 @@ class UniversalSDK {
     }
   }
 
-  async get<T = any>(collection: string): Promise<T[]> {
+  async get<T = Record<string, unknown>>(collection: string): Promise<T[]> {
     try {
       console.log(`Getting collection: ${collection}`);
       const filePath = `${this.basePath}/${collection}.json`;
@@ -141,12 +233,12 @@ class UniversalSDK {
     }
   }
 
-  async getItem<T = any>(collection: string, key: string): Promise<T | null> {
+  async getItem<T = Record<string, unknown>>(collection: string, key: string): Promise<T | null> {
     const arr = await this.get<T>(collection);
-    return arr.find((x: any) => x.id === key || x.uid === key) || null;
+    return arr.find((x: T & { id?: string; uid?: string }) => x.id === key || x.uid === key) || null;
   }
 
-  private async save<T = any>(collection: string, data: T[]): Promise<void> {
+  private async save<T = Record<string, unknown>>(collection: string, data: T[]): Promise<void> {
     const filePath = `${this.basePath}/${collection}.json`;
     let sha: string | undefined;
     
@@ -202,9 +294,9 @@ class UniversalSDK {
     }
   }
 
-  async insert<T = any>(collection: string, item: Partial<T>): Promise<T & { id: string; uid: string }> {
+  async insert<T = Record<string, unknown>>(collection: string, item: Partial<T>): Promise<T & { id: string; uid: string }> {
     const arr = await this.get<T>(collection);
-    const maxId = Math.max(0, ...arr.map((x: any) => parseInt(x.id) || 0));
+    const maxId = Math.max(0, ...arr.map((x: T & { id?: string }) => parseInt((x.id || '0').toString()) || 0));
     const id = (maxId + 1).toString();
     const uid = crypto.randomUUID();
     
@@ -223,9 +315,9 @@ class UniversalSDK {
     return newItem;
   }
 
-  async update<T = any>(collection: string, key: string, updates: Partial<T>): Promise<T> {
+  async update<T = Record<string, unknown>>(collection: string, key: string, updates: Partial<T>): Promise<T> {
     const arr = await this.get<T>(collection);
-    const index = arr.findIndex((x: any) => x.id === key || x.uid === key);
+    const index = arr.findIndex((x: T & { id?: string; uid?: string }) => x.id === key || x.uid === key);
     
     if (index < 0) {
       throw new Error(`Item with key ${key} not found in ${collection}`);
@@ -244,9 +336,9 @@ class UniversalSDK {
     return updatedItem;
   }
 
-  async delete<T = any>(collection: string, key: string): Promise<void> {
+  async delete<T = Record<string, unknown>>(collection: string, key: string): Promise<void> {
     const arr = await this.get<T>(collection);
-    const filtered = arr.filter((x: any) => x.id !== key && x.uid !== key);
+    const filtered = arr.filter((x: T & { id?: string; uid?: string }) => x.id !== key && x.uid !== key);
     
     if (filtered.length === arr.length) {
       throw new Error(`Item with key ${key} not found in ${collection}`);
@@ -304,7 +396,7 @@ class UniversalSDK {
     return token;
   }
 
-  async register(email: string, password: string, profile: any): Promise<User> {
+  async register(email: string, password: string, profile: UserProfile): Promise<User> {
     console.log(`Attempting registration for: ${email}`);
     const users = await this.get<User>('users');
     

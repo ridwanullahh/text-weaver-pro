@@ -1,6 +1,10 @@
 
 import UniversalSDK from './universalSDK';
 
+interface UserProfile {
+  fullName: string;
+}
+
 // Check if we have valid credentials
 const hasValidCredentials = () => {
   const owner = import.meta.env.VITE_GITHUB_OWNER;
@@ -64,7 +68,7 @@ export const initializeSDK = async (): Promise<boolean> => {
 // Enhanced SDK wrapper with better error handling
 const createSDKWrapper = () => {
   return {
-    async get<T = any>(collection: string): Promise<T[]> {
+    async get<T = Record<string, unknown>>(collection: string): Promise<T[]> {
       try {
         console.log(`Getting collection: ${collection}`);
         const result = await sdk.get<T>(collection);
@@ -76,7 +80,7 @@ const createSDKWrapper = () => {
       }
     },
 
-    async insert<T = any>(collection: string, item: Partial<T>): Promise<T & { id: string; uid: string }> {
+    async insert<T = Record<string, unknown>>(collection: string, item: Partial<T>): Promise<T & { id: string; uid: string }> {
       try {
         console.log(`Inserting into ${collection}:`, item);
         const result = await sdk.insert<T>(collection, item);
@@ -88,7 +92,7 @@ const createSDKWrapper = () => {
       }
     },
 
-    async update<T = any>(collection: string, key: string, updates: Partial<T>): Promise<T> {
+    async update<T = Record<string, unknown>>(collection: string, key: string, updates: Partial<T>): Promise<T> {
       try {
         console.log(`Updating ${collection} key ${key}:`, updates);
         const result = await sdk.update<T>(collection, key, updates);
@@ -100,7 +104,7 @@ const createSDKWrapper = () => {
       }
     },
 
-    async delete<T = any>(collection: string, key: string): Promise<void> {
+    async delete<T = Record<string, unknown>>(collection: string, key: string): Promise<void> {
       try {
         console.log(`Deleting from ${collection} key ${key}`);
         await sdk.delete<T>(collection, key);
@@ -124,7 +128,7 @@ const createSDKWrapper = () => {
       }
     },
 
-    async register(email: string, password: string, profile: any): Promise<any> {
+    async register(email: string, password: string, profile: UserProfile): Promise<import('./universalSDK').User> {
       try {
         console.log(`Attempting registration for: ${email}`);
         const result = await sdk.register(email, password, profile);
