@@ -3,7 +3,7 @@ import React, { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   FileText, 
@@ -11,20 +11,24 @@ import {
   User, 
   Settings,
   Plus,
-  Wallet
+  Wallet,
+  Menu,
+  LogOut
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface MobileLayoutProps {
   children: ReactNode;
 }
 
 const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/' },
+    { icon: Home, label: 'Home', path: '/dashboard' },
     { icon: FileText, label: 'Translate', path: '/app' },
     { icon: Crown, label: 'Pricing', path: '/pricing' },
     { icon: User, label: 'Profile', path: '/dashboard' },
@@ -36,28 +40,71 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
 
   const handleQuickAction = () => {
     if (!isAuthenticated) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to start translating documents.",
-        variant: "destructive"
-      });
+      navigate('/login');
       return;
     }
     // Navigate to translation app
-    window.location.href = '/app';
+    navigate('/app');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen bg-background">
+      {/* Mobile Header */}
+      <header className="mobile-header px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="text-2xl">🌐</div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">TextWeaver Pro</h1>
+              <p className="text-xs text-muted-foreground">Professional Translation</p>
+            </div>
+          </div>
+          
+          {isAuthenticated && user && (
+            <div className="flex items-center space-x-3">
+              {/* Wallet Balance */}
+              <div className="bg-card rounded-full px-3 py-1 border border-border">
+                <div className="flex items-center space-x-1 text-sm">
+                  <Wallet className="w-3 h-3 text-primary" />
+                  <span className="font-medium text-foreground">
+                    ${(user.walletBalance || 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              
+              {/* User Menu */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="p-2"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+          
+          {!isAuthenticated && (
+            <Button
+              onClick={() => navigate('/login')}
+              size="sm"
+              className="gradient-primary text-primary-foreground"
+            >
+              Sign In
+            </Button>
+          )}
+        </div>
+      </header>
+
       {/* Main Content */}
-      <main className="pb-20">
+      <main className="pb-20 px-4">
         {children}
       </main>
 
       {/* Floating Action Button */}
       <motion.button
         onClick={handleQuickAction}
-        className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-gradient-to-r from-primary to-accent rounded-full shadow-lg flex items-center justify-center text-white"
+        className="floating-action"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
         initial={{ scale: 0 }}
@@ -68,8 +115,8 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
       </motion.button>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-30">
-        <div className="flex items-center justify-around py-2">
+      <nav className="mobile-nav py-2">
+        <div className="flex items-center justify-around">
           {navItems.map((item, index) => (
             <Link
               key={item.path}
@@ -86,23 +133,6 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
           ))}
         </div>
       </nav>
-
-      {/* Wallet Balance (if authenticated) */}
-      {isAuthenticated && user && (
-        <motion.div
-          className="fixed top-4 right-4 z-30 bg-card/95 backdrop-blur-md rounded-full px-3 py-2 border border-border"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <div className="flex items-center space-x-2 text-sm">
-            <Wallet className="w-4 h-4 text-primary" />
-            <span className="font-medium text-foreground">
-              ${(user.walletBalance || 0).toFixed(2)}
-            </span>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 };

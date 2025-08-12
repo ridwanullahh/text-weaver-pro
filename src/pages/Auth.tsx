@@ -5,7 +5,8 @@ import LoginForm from '@/components/auth/LoginForm';
 import RegisterForm from '@/components/auth/RegisterForm';
 import PasswordResetForm from '@/components/auth/PasswordResetForm';
 import { Link } from 'react-router-dom';
-import PageLayout from '@/components/shared/PageLayout';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,52 +14,80 @@ const Auth = () => {
 
   if (showPasswordReset) {
     return (
-      <PageLayout showFooter={false}>
-        <div className="flex items-center justify-center min-h-screen p-4">
-          <div className="w-full max-w-md">
-            <div className="text-center mb-8">
-              <Link to="/" className="text-3xl font-bold text-white mb-2 block">
-                TextWeaver Pro
-              </Link>
-              <p className="text-white/60">Reset Your Password</p>
-            </div>
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Header */}
+        <header className="mobile-header px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowPasswordReset(false)}
+              className="p-2"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-lg font-bold text-foreground">Reset Password</h1>
+            <div></div>
+          </div>
+        </header>
 
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
             <PasswordResetForm onBack={() => setShowPasswordReset(false)} />
           </div>
         </div>
-      </PageLayout>
+      </div>
     );
   }
 
   return (
-    <PageLayout showFooter={false}>
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <Link to="/" className="text-3xl font-bold text-white mb-2 block">
-              TextWeaver Pro
-            </Link>
-            <p className="text-white/60">Professional Document Translation</p>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="mobile-header px-4 py-3">
+        <div className="flex items-center justify-between">
+          <Link to="/">
+            <Button variant="ghost" size="sm" className="p-2">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          </Link>
+          <div className="flex items-center space-x-2">
+            <div className="text-xl">🌐</div>
+            <h1 className="text-lg font-bold text-foreground">TextWeaver Pro</h1>
+          </div>
+          <div></div>
+        </div>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
+              {isLogin ? 'Welcome Back' : 'Create Account'}
+            </h2>
+            <p className="text-muted-foreground">
+              {isLogin ? 'Sign in to your account' : 'Join TextWeaver Pro today'}
+            </p>
           </div>
 
-          <div className="mb-6">
-            <div className="flex bg-white/10 backdrop-blur-md rounded-lg p-1 border border-white/20">
+          {/* Auth Toggle */}
+          <div className="bg-muted/50 rounded-xl p-1 border border-border">
+            <div className="flex">
               <button
                 onClick={() => setIsLogin(true)}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
                   isLogin
-                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
-                    : 'text-white/70 hover:text-white'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Sign In
               </button>
               <button
                 onClick={() => setIsLogin(false)}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
+                className={`flex-1 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
                   !isLogin
-                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
-                    : 'text-white/70 hover:text-white'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Sign Up
@@ -80,10 +109,10 @@ const Auth = () => {
           </motion.div>
 
           {!isLogin && (
-            <div className="mt-6 text-center">
+            <div className="text-center">
               <Link 
                 to="/request-invite" 
-                className="text-purple-400 hover:text-purple-300 text-sm underline"
+                className="text-primary hover:text-primary/80 text-sm underline"
               >
                 Need help? Request support
               </Link>
@@ -91,7 +120,7 @@ const Auth = () => {
           )}
         </div>
       </div>
-    </PageLayout>
+    </div>
   );
 };
 
