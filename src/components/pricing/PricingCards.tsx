@@ -31,8 +31,8 @@ const PricingCards = () => {
       bgColor: 'bg-card',
     },
     {
-      id: 'premium',
-      name: 'Premium',
+      id: 'pro',
+      name: 'Professional',
       icon: <Star className="w-6 h-6 text-accent" />,
       price: { monthly: 29.99, annual: 299.99 },
       description: 'Best for professionals and businesses',
@@ -88,8 +88,8 @@ const PricingCards = () => {
   };
 
   const getCurrentPlan = () => {
-    // This should check user's current plan from your database
-    return user?.subscription_tier || 'free';
+    // Use the plan property from User interface
+    return user?.plan || 'free';
   };
 
   return (
