@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,9 +26,9 @@ import {
   BarChart3, 
   Star, 
   Settings,
-  ArrowLeft,
   Zap,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 
 const TranslationApp = () => {
@@ -108,31 +107,31 @@ const TranslationApp = () => {
   };
 
   const tabs = [
-    { id: 'upload', label: 'Upload', icon: Upload, color: 'text-blue-500' },
-    { id: 'projects', label: 'Projects', icon: FolderOpen, color: 'text-green-500' },
-    { id: 'translate', label: 'Translate', icon: Languages, color: 'text-purple-500' },
-    { id: 'suggestions', label: 'AI Assist', icon: Brain, color: 'text-pink-500' },
-    { id: 'batch', label: 'Batch', icon: Package, color: 'text-orange-500' },
-    { id: 'live', label: 'Live', icon: Eye, color: 'text-indigo-500' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, color: 'text-cyan-500' },
-    { id: 'quality', label: 'Quality', icon: Star, color: 'text-yellow-500' },
-    { id: 'settings', label: 'Settings', icon: Settings, color: 'text-gray-500' }
+    { id: 'upload', label: 'Upload', icon: Upload, color: 'text-blue-600', description: 'Upload documents' },
+    { id: 'projects', label: 'Projects', icon: FolderOpen, color: 'text-green-600', description: 'Manage projects' },
+    { id: 'translate', label: 'Translate', icon: Languages, color: 'text-purple-600', description: 'Translation studio' },
+    { id: 'suggestions', label: 'AI Assist', icon: Brain, color: 'text-pink-600', description: 'Smart suggestions' },
+    { id: 'batch', label: 'Batch', icon: Package, color: 'text-orange-600', description: 'Bulk operations' },
+    { id: 'live', label: 'Live', icon: Eye, color: 'text-indigo-600', description: 'Real-time view' },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, color: 'text-cyan-600', description: 'Usage insights' },
+    { id: 'quality', label: 'Quality', icon: Star, color: 'text-yellow-600', description: 'Quality check' },
+    { id: 'settings', label: 'Settings', icon: Settings, color: 'text-gray-600', description: 'Configure AI' }
   ];
 
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="w-full max-w-md mx-4">
+        <Card className="w-full max-w-md mx-4 border-destructive/20">
           <CardContent className="text-center p-6">
-            <div className="text-4xl mb-4">⚠️</div>
-            <h2 className="text-xl font-bold mb-4">Something went wrong</h2>
+            <div className="text-4xl mb-4 text-destructive">⚠️</div>
+            <h2 className="text-xl font-bold mb-4 text-foreground">Something went wrong</h2>
             <p className="text-muted-foreground mb-6">{error}</p>
             <Button 
               onClick={() => {
                 setError(null);
                 loadProjects();
               }} 
-              className="gradient-primary text-primary-foreground"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Try Again
             </Button>
@@ -147,7 +146,7 @@ const TranslationApp = () => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <div className="animate-spin text-6xl mb-4">⚙️</div>
-          <h2 className="text-xl font-bold mb-4">Loading Translation Studio</h2>
+          <h2 className="text-xl font-bold mb-4 text-foreground">Loading Translation Studio</h2>
           <p className="text-muted-foreground">Initializing your workspace...</p>
         </div>
       </div>
@@ -156,61 +155,68 @@ const TranslationApp = () => {
 
   return (
     <div className="space-y-6">
-      {/* Extraction Method Toggle */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-foreground">Extraction Mode</h3>
-              <p className="text-sm text-muted-foreground">Choose your processing method</p>
-            </div>
-            <div className="flex bg-muted rounded-lg p-1">
-              <button
-                onClick={() => setExtractionMethod('traditional')}
-                className={`px-3 py-2 rounded text-sm font-medium transition-all flex items-center space-x-1 ${
-                  extractionMethod === 'traditional'
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Zap className="w-3 h-3" />
-                <span>Fast</span>
-              </button>
-              <button
-                onClick={() => setExtractionMethod('ai')}
-                className={`px-3 py-2 rounded text-sm font-medium transition-all flex items-center space-x-1 ${
-                  extractionMethod === 'ai'
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>AI</span>
-              </button>
-            </div>
+      {/* Header */}
+      <div className="bg-card rounded-lg border border-border p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Translation Studio</h1>
+            <p className="text-muted-foreground">Professional document translation powered by AI</p>
           </div>
-        </CardContent>
-      </Card>
+          
+          {/* Extraction Method Toggle */}
+          <div className="bg-muted/50 rounded-lg p-1 flex">
+            <button
+              onClick={() => setExtractionMethod('traditional')}
+              className={`px-4 py-2 rounded text-sm font-medium transition-all flex items-center space-x-2 ${
+                extractionMethod === 'traditional'
+                  ? 'bg-card text-foreground shadow-sm border border-border'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              <span>Fast Mode</span>
+            </button>
+            <button
+              onClick={() => setExtractionMethod('ai')}
+              className={`px-4 py-2 rounded text-sm font-medium transition-all flex items-center space-x-2 ${
+                extractionMethod === 'ai'
+                  ? 'bg-card text-foreground shadow-sm border border-border'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>AI Mode</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Navigation Tabs */}
-      <div className="overflow-x-auto">
-        <div className="flex space-x-2 pb-2">
-          {tabs.map((tab) => (
-            <motion.button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all whitespace-nowrap min-w-max ${
-                activeTab === tab.id
-                  ? 'bg-card text-foreground shadow-md border border-border'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? tab.color : ''}`} />
-              <span>{tab.label}</span>
-            </motion.button>
-          ))}
+      <div className="bg-card rounded-lg border border-border p-4">
+        <div className="overflow-x-auto">
+          <div className="flex space-x-2 min-w-max">
+            {tabs.map((tab) => (
+              <motion.button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'text-foreground hover:bg-muted/50 border border-transparent hover:border-border'
+                }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? '' : tab.color}`} />
+                <div className="text-left">
+                  <div className="font-medium">{tab.label}</div>
+                  <div className={`text-xs ${activeTab === tab.id ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                    {tab.description}
+                  </div>
+                </div>
+              </motion.button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -220,25 +226,30 @@ const TranslationApp = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
+        className="bg-card rounded-lg border border-border overflow-hidden"
       >
         {activeTab === 'upload' && (
-          <UploadSection 
-            onFilesProcessed={handleFilesProcessed}
-            extractionMethod={extractionMethod}
-            onExtractionMethodChange={setExtractionMethod}
-          />
+          <div className="p-6">
+            <UploadSection 
+              onFilesProcessed={handleFilesProcessed}
+              extractionMethod={extractionMethod}
+              onExtractionMethodChange={setExtractionMethod}
+            />
+          </div>
         )}
         
         {activeTab === 'projects' && (
-          <ProjectManager 
-            projects={projects} 
-            onProjectSelect={handleProjectSelect}
-            onProjectsUpdate={loadProjects}
-          />
+          <div className="p-6">
+            <ProjectManager 
+              projects={projects} 
+              onProjectSelect={handleProjectSelect}
+              onProjectsUpdate={loadProjects}
+            />
+          </div>
         )}
         
         {activeTab === 'translate' && currentProject && (
-          <div className="space-y-6">
+          <div className="p-6 space-y-6">
             <LanguageSelector 
               project={currentProject}
               onUpdate={setCurrentProject}
@@ -249,29 +260,38 @@ const TranslationApp = () => {
         )}
 
         {activeTab === 'translate' && !currentProject && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <div className="text-4xl mb-4">🔄</div>
-              <h3 className="text-xl font-bold mb-4">No Project Selected</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Select a project from the Projects tab or create a new one
-              </p>
+          <div className="p-12 text-center">
+            <div className="text-6xl mb-6 text-muted-foreground/50">
+              <FileText className="w-16 h-16 mx-auto" />
+            </div>
+            <h3 className="text-xl font-bold mb-4 text-foreground">No Project Selected</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Select a project from the Projects tab or create a new one by uploading documents
+            </p>
+            <div className="flex space-x-3 justify-center">
               <Button
                 onClick={() => setActiveTab('projects')}
-                className="gradient-primary text-primary-foreground"
+                variant="outline"
+                className="border-border text-foreground hover:bg-muted"
               >
                 View Projects
               </Button>
-            </CardContent>
-          </Card>
+              <Button
+                onClick={() => setActiveTab('upload')}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Upload Documents
+              </Button>
+            </div>
+          </div>
         )}
 
         {activeTab === 'suggestions' && currentProject && (
-          <div>
-            <Card className="mb-6">
+          <div className="p-6 space-y-4">
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Brain className="w-5 h-5 text-pink-500" />
+                  <Brain className="w-5 h-5 text-pink-600" />
                   <span>AI Translation Assistant</span>
                 </CardTitle>
               </CardHeader>
@@ -291,29 +311,29 @@ const TranslationApp = () => {
         )}
 
         {activeTab === 'suggestions' && !currentProject && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <div className="text-4xl mb-4">🧠</div>
-              <h3 className="text-xl font-bold mb-4">No Project Selected</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Select a project to get AI-powered translation suggestions
-              </p>
-              <Button
-                onClick={() => setActiveTab('projects')}
-                className="gradient-primary text-primary-foreground"
-              >
-                Select Project
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="p-12 text-center">
+            <div className="text-6xl mb-6 text-muted-foreground/50">
+              <Brain className="w-16 h-16 mx-auto" />
+            </div>
+            <h3 className="text-xl font-bold mb-4 text-foreground">No Project Selected</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Select a project to get AI-powered translation suggestions
+            </p>
+            <Button
+              onClick={() => setActiveTab('projects')}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Select Project
+            </Button>
+          </div>
         )}
 
         {activeTab === 'batch' && (
-          <div>
-            <Card className="mb-6">
+          <div className="p-6 space-y-4">
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Package className="w-5 h-5 text-orange-500" />
+                  <Package className="w-5 h-5 text-orange-600" />
                   <span>Batch Operations</span>
                 </CardTitle>
               </CardHeader>
@@ -334,11 +354,11 @@ const TranslationApp = () => {
         )}
 
         {activeTab === 'live' && currentProject && (
-          <div>
-            <Card className="mb-6">
+          <div className="p-6 space-y-4">
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Eye className="w-5 h-5 text-indigo-500" />
+                  <Eye className="w-5 h-5 text-indigo-600" />
                   <span>Live Translation View</span>
                 </CardTitle>
               </CardHeader>
@@ -356,29 +376,29 @@ const TranslationApp = () => {
         )}
 
         {activeTab === 'live' && !currentProject && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <div className="text-4xl mb-4">👁️</div>
-              <h3 className="text-xl font-bold mb-4">No Project Selected</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Select a project to view live translation progress
-              </p>
-              <Button
-                onClick={() => setActiveTab('projects')}
-                className="gradient-primary text-primary-foreground"
-              >
-                Select Project
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="p-12 text-center">
+            <div className="text-6xl mb-6 text-muted-foreground/50">
+              <Eye className="w-16 h-16 mx-auto" />
+            </div>
+            <h3 className="text-xl font-bold mb-4 text-foreground">No Project Selected</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Select a project to view live translation progress
+            </p>
+            <Button
+              onClick={() => setActiveTab('projects')}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Select Project
+            </Button>
+          </div>
         )}
 
         {activeTab === 'analytics' && (
-          <div>
-            <Card className="mb-6">
+          <div className="p-6 space-y-4">
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <BarChart3 className="w-5 h-5 text-cyan-500" />
+                  <BarChart3 className="w-5 h-5 text-cyan-600" />
                   <span>Translation Analytics</span>
                 </CardTitle>
               </CardHeader>
@@ -393,11 +413,11 @@ const TranslationApp = () => {
         )}
 
         {activeTab === 'quality' && currentProject && (
-          <div>
-            <Card className="mb-6">
+          <div className="p-6 space-y-4">
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Star className="w-5 h-5 text-yellow-500" />
+                  <Star className="w-5 h-5 text-yellow-600" />
                   <span>Quality Assessment</span>
                 </CardTitle>
               </CardHeader>
@@ -412,29 +432,29 @@ const TranslationApp = () => {
         )}
 
         {activeTab === 'quality' && !currentProject && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <div className="text-4xl mb-4">⭐</div>
-              <h3 className="text-xl font-bold mb-4">No Project Selected</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Select a project to view quality assessment
-              </p>
-              <Button
-                onClick={() => setActiveTab('projects')}
-                className="gradient-primary text-primary-foreground"
-              >
-                Select Project
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="p-12 text-center">
+            <div className="text-6xl mb-6 text-muted-foreground/50">
+              <Star className="w-16 h-16 mx-auto" />
+            </div>
+            <h3 className="text-xl font-bold mb-4 text-foreground">No Project Selected</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Select a project to view quality assessment
+            </p>
+            <Button
+              onClick={() => setActiveTab('projects')}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Select Project
+            </Button>
+          </div>
         )}
 
         {activeTab === 'settings' && (
-          <div>
-            <Card className="mb-6">
+          <div className="p-6 space-y-4">
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Settings className="w-5 h-5 text-gray-500" />
+                  <Settings className="w-5 h-5 text-gray-600" />
                   <span>AI Provider Settings</span>
                 </CardTitle>
               </CardHeader>

@@ -1,143 +1,137 @@
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './hooks/useAuth';
-import { Toaster } from '@/components/ui/toaster';
-import { initializeSDK } from './services/sdkService';
-import MobileLayout from './components/layout/MobileLayout';
-import PageLayout from './components/shared/PageLayout';
-import Landing from './pages/Landing';
-import Auth from './pages/Auth';
-import Index from './pages/Index';
-import TranslationApp from './pages/TranslationApp';
-import Admin from './pages/Admin';
-import Features from './pages/Features';
-import Pricing from './pages/Pricing';
-import Blog from './pages/Blog';
-import BlogSingle from './pages/BlogSingle';
-import Documentation from './pages/Documentation';
-import Contact from './pages/Contact';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import RequestInvite from './pages/RequestInvite';
-import NotFound from './pages/NotFound';
-import './App.css';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from '@/components/ui/sonner';
+import { useAuth } from '@/hooks/useAuth';
 
-// Initialize SDK
-initializeSDK().then(() => {
-  console.log('SDK initialized successfully');
-}).catch(error => {
-  console.error('SDK initialization failed:', error);
-});
+// Layouts
+import MobileLayout from '@/components/layout/MobileLayout';
+import PageLayout from '@/components/shared/PageLayout';
 
+// Pages
+import Landing from '@/pages/Landing';
+import Features from '@/pages/Features';
+import Pricing from '@/pages/Pricing';
+import Blog from '@/pages/Blog';
+import BlogSingle from '@/pages/BlogSingle';
+import Documentation from '@/pages/Documentation';
+import Contact from '@/pages/Contact';
+import Terms from '@/pages/Terms';
+import Privacy from '@/pages/Privacy';
+import Auth from '@/pages/Auth';
+import Index from '@/pages/Index';
+import TranslationApp from '@/pages/TranslationApp';
+import Admin from '@/pages/Admin';
+import NotFound from '@/pages/NotFound';
+
+const queryClient = new QueryClient();
+
+// Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   
-  if (isLoading) {
+  if (loading) {
     return (
-      <MobileLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin text-6xl mb-4">⚙️</div>
-            <h2 className="text-2xl font-bold text-foreground">Loading...</h2>
-          </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⚙️</div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
-      </MobileLayout>
+      </div>
     );
   }
   
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return <>{children}</>;
 };
 
-const AuthRedirect = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+// Admin Route Component
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAuthenticated, loading } = useAuth();
   
-  if (isLoading) {
+  if (loading) {
     return (
-      <MobileLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin text-6xl mb-4">⚙️</div>
-            <h2 className="text-2xl font-bold text-foreground">Loading...</h2>
-          </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⚙️</div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
-      </MobileLayout>
+      </div>
     );
   }
   
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />;
-};
-
-const PublicPageWrapper = ({ children }: { children: React.ReactNode }) => {
-  return <PageLayout>{children}</PageLayout>;
-};
-
-const AppPageWrapper = ({ children }: { children: React.ReactNode }) => {
-  return <MobileLayout>{children}</MobileLayout>;
+  if (!isAuthenticated || !user?.roles?.includes('admin')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  return <>{children}</>;
 };
 
 function App() {
   return (
-    <AuthProvider>
+    <QueryClientProvider client={queryClient}>
       <Router>
-        <div className="App min-h-screen">
-          <Routes>
-            {/* Public Routes with PageLayout */}
-            <Route path="/" element={<PublicPageWrapper><Landing /></PublicPageWrapper>} />
-            <Route path="/features" element={<PublicPageWrapper><Features /></PublicPageWrapper>} />
-            <Route path="/pricing" element={<PublicPageWrapper><Pricing /></PublicPageWrapper>} />
-            <Route path="/blog" element={<PublicPageWrapper><Blog /></PublicPageWrapper>} />
-            <Route path="/blog/:slug" element={<PublicPageWrapper><BlogSingle /></PublicPageWrapper>} />
-            <Route path="/docs" element={<PublicPageWrapper><Documentation /></PublicPageWrapper>} />
-            <Route path="/documentation" element={<PublicPageWrapper><Documentation /></PublicPageWrapper>} />
-            <Route path="/contact" element={<PublicPageWrapper><Contact /></PublicPageWrapper>} />
-            <Route path="/terms" element={<PublicPageWrapper><Terms /></PublicPageWrapper>} />
-            <Route path="/privacy" element={<PublicPageWrapper><Privacy /></PublicPageWrapper>} />
-            <Route path="/request-invite" element={<PublicPageWrapper><RequestInvite /></PublicPageWrapper>} />
-            
-            {/* Auth Routes */}
-            <Route path="/login" element={<AuthRedirect />} />
-            <Route path="/auth" element={<Navigate to="/login" replace />} />
-            <Route path="/register" element={<AuthRedirect />} />
-            <Route path="/signup" element={<AuthRedirect />} />
-            
-            {/* Protected App Routes with MobileLayout */}
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <AppPageWrapper><Index /></AppPageWrapper>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/app" 
-              element={
-                <ProtectedRoute>
-                  <AppPageWrapper><TranslationApp /></AppPageWrapper>
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin" 
-              element={
-                <ProtectedRoute>
-                  <AppPageWrapper><Admin /></AppPageWrapper>
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Legacy Routes */}
-            <Route path="/index" element={<Navigate to="/dashboard" replace />} />
-            
-            {/* 404 Route */}
-            <Route path="*" element={<PublicPageWrapper><NotFound /></PublicPageWrapper>} />
-          </Routes>
+        <Routes>
+          {/* Public Pages with PageLayout */}
+          <Route path="/" element={<PageLayout><Landing /></PageLayout>} />
+          <Route path="/features" element={<PageLayout><Features /></PageLayout>} />
+          <Route path="/pricing" element={<PageLayout><Pricing /></PageLayout>} />
+          <Route path="/blog" element={<PageLayout><Blog /></PageLayout>} />
+          <Route path="/blog/:slug" element={<PageLayout><BlogSingle /></PageLayout>} />
+          <Route path="/docs" element={<PageLayout><Documentation /></PageLayout>} />
+          <Route path="/contact" element={<PageLayout><Contact /></PageLayout>} />
+          <Route path="/terms" element={<PageLayout><Terms /></PageLayout>} />
+          <Route path="/privacy" element={<PageLayout><Privacy /></PageLayout>} />
           
-          <Toaster />
-        </div>
+          {/* Auth Pages */}
+          <Route path="/login" element={<Auth />} />
+          <Route path="/register" element={<Auth />} />
+          <Route path="/forgot-password" element={<Auth />} />
+          
+          {/* Protected App Pages with MobileLayout */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <MobileLayout>
+                  <Index />
+                </MobileLayout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/app" 
+            element={
+              <ProtectedRoute>
+                <MobileLayout>
+                  <TranslationApp />
+                </MobileLayout>
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Admin Routes */}
+          <Route 
+            path="/admin/*" 
+            element={
+              <AdminRoute>
+                <MobileLayout>
+                  <Admin />
+                </MobileLayout>
+              </AdminRoute>
+            } 
+          />
+          
+          {/* Fallback */}
+          <Route path="*" element={<PageLayout><NotFound /></PageLayout>} />
+        </Routes>
+        <Toaster />
       </Router>
-    </AuthProvider>
+    </QueryClientProvider>
   );
 }
 
