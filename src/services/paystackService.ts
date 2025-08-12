@@ -2,7 +2,7 @@
 interface PaystackResponse {
   status: boolean;
   message: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 interface PaymentData {
@@ -10,7 +10,34 @@ interface PaymentData {
   email: string;
   currency?: string;
   callback_url?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
+}
+
+interface PaymentResponse {
+  reference: string;
+  status: string;
+  message: string;
+  trans: string;
+  transaction: string;
+  trxref: string;
+}
+
+declare global {
+  interface Window {
+    PaystackPop?: {
+      setup: (config: {
+        key: string;
+        email: string;
+        amount: number;
+        currency?: string;
+        metadata?: Record<string, unknown>;
+        callback: (response: PaymentResponse) => void;
+        onClose: () => void;
+      }) => {
+        openIframe: () => void;
+      };
+    };
+  }
 }
 
 class PaystackService {
@@ -88,7 +115,7 @@ class PaystackService {
 
   async openPaymentModal(
     data: PaymentData, 
-    onSuccess: (response: any) => void, 
+    onSuccess: (response: PaymentResponse) => void, 
     onClose: () => void
   ): Promise<void> {
     if (!this.publicKey) {
@@ -96,19 +123,18 @@ class PaystackService {
     }
 
     // Check if Paystack script is loaded
-    if (typeof window === 'undefined' || !(window as any).PaystackPop) {
+    if (typeof window === 'undefined' || !window.PaystackPop) {
       throw new Error('Paystack script not loaded. Please include the Paystack script in your HTML.');
     }
 
     try {
-      // @ts-ignore - Paystack is loaded via script
-      const handler = PaystackPop.setup({
+      const handler = window.PaystackPop.setup({
         key: this.publicKey,
         email: data.email,
         amount: data.amount * 100, // Convert to kobo/cents
         currency: data.currency || 'NGN',
         metadata: data.metadata,
-        callback: (response: any) => {
+        callback: (response: PaymentResponse) => {
           console.log('Payment successful:', response);
           onSuccess(response);
         },

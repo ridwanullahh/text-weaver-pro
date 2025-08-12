@@ -93,7 +93,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ project, onExportComplete }) 
     setIsExporting(true);
     
     try {
-      let exportData: any = {};
+      const exportData: any = {};
       
       if (includeOriginal) {
         exportData[project.sourceLanguage || 'original'] = project.originalContent;
