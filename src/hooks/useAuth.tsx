@@ -10,6 +10,10 @@ interface User {
   roles?: string[];
   isAdmin?: boolean;
   dailyTextTranslations?: number;
+  totalDocuments?: number;
+  languagesUsed?: number;
+  monthlyPagesUsed?: number;
+  monthlyTranslationsUsed?: number;
 }
 
 interface AuthContextType {
@@ -107,7 +111,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         plan: 'free',
         roles: email.includes('admin') ? ['admin'] : [],
         isAdmin: email.includes('admin'),
-        dailyTextTranslations: 0
+        dailyTextTranslations: 0,
+        totalDocuments: 12,
+        languagesUsed: 3,
+        monthlyPagesUsed: 15,
+        monthlyTranslationsUsed: 8
       };
       
       setUser(userData);
@@ -137,7 +145,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         plan: 'free',
         roles: [],
         isAdmin: false,
-        dailyTextTranslations: 0
+        dailyTextTranslations: 0,
+        totalDocuments: 0,
+        languagesUsed: 0,
+        monthlyPagesUsed: 0,
+        monthlyTranslationsUsed: 0
       };
       
       setUser(userData);
