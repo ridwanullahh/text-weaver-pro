@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/hooks/useAuth';
 
 interface CostCalculation {
@@ -158,6 +157,23 @@ class MonetizationService {
       remaining: 0, 
       message: 'Daily free translation limit reached. Upgrade or fund wallet to continue.' 
     };
+  }
+
+  async deductFromWallet(user: any, amount: number, updateUser: (updates: any) => Promise<void>): Promise<boolean> {
+    try {
+      if (user.walletBalance < amount) {
+        throw new Error('Insufficient funds');
+      }
+
+      const newBalance = user.walletBalance - amount;
+      await updateUser({ walletBalance: newBalance });
+      
+      console.log(`Deducted $${amount.toFixed(2)} from wallet. New balance: $${newBalance.toFixed(2)}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to deduct from wallet:', error);
+      return false;
+    }
   }
 
   async processPayment(user: any, amount: number, operation: string, updateUser: (updates: any) => Promise<void>): Promise<boolean> {

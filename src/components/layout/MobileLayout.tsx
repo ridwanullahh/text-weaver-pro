@@ -1,196 +1,108 @@
 
-import React, { useState } from 'react';
-import { Outlet, useLocation, Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import React, { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   FileText, 
-  Settings, 
-  User,
-  Menu,
-  Bell,
-  Search,
+  Crown, 
+  User, 
+  Settings,
   Plus,
-  Sun,
-  Moon
+  Wallet
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
-const MobileLayout = () => {
+interface MobileLayoutProps {
+  children: ReactNode;
+}
+
+const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const location = useLocation();
-  const [isDark, setIsDark] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
 
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle('dark');
-  };
-
-  const navigationItems = [
-    { path: '/', icon: Home, label: 'Home' },
-    { path: '/app', icon: FileText, label: 'Translate' },
-    { path: '/settings', icon: Settings, label: 'Settings' },
-    { path: '/profile', icon: User, label: 'Profile' },
+  const navItems = [
+    { icon: Home, label: 'Home', path: '/' },
+    { icon: FileText, label: 'Translate', path: '/app' },
+    { icon: Crown, label: 'Pricing', path: '/pricing' },
+    { icon: User, label: 'Profile', path: '/dashboard' },
   ];
 
   const isActivePath = (path: string) => {
-    if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
-    return false;
+    return location.pathname === path;
+  };
+
+  const handleQuickAction = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to start translating documents.",
+        variant: "destructive"
+      });
+      return;
+    }
+    // Navigate to translation app
+    window.location.href = '/app';
   };
 
   return (
-    <div className="app-container">
-      {/* Mobile Header */}
-      <motion.header 
-        className="mobile-header px-4 py-3"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">TW</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">TextWeaver</h1>
-              {isAuthenticated && (
-                <p className="text-xs text-muted-foreground">
-                  Welcome back, {user?.email?.split('@')[0]}
-                </p>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-full"
-            >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="w-9 h-9 rounded-full relative"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full text-xs"></span>
-            </Button>
-          </div>
-        </div>
-        
-        {/* Search Bar */}
-        <motion.div 
-          className="mt-3 relative"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search translations..."
-            className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
-        </motion.div>
-      </motion.header>
-
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto pb-20">
-        <Outlet />
+      <main className="pb-20">
+        {children}
       </main>
 
       {/* Floating Action Button */}
-      <AnimatePresence>
-        {location.pathname === '/' && (
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            exit={{ scale: 0, rotate: 180 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <Link to="/app" className="floating-action">
-              <Plus className="w-6 h-6" />
-            </Link>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Mobile Navigation */}
-      <motion.nav 
-        className="mobile-nav px-4 py-2"
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      <motion.button
+        onClick={handleQuickAction}
+        className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-gradient-to-r from-primary to-accent rounded-full shadow-lg flex items-center justify-center text-white"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.5 }}
       >
-        <div className="flex items-center justify-around">
-          {navigationItems.map((item) => {
-            const isActive = isActivePath(item.path);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 relative"
-              >
-                <motion.div
-                  className={`p-2 rounded-xl transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  }`}
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.05 }}
-                >
-                  <item.icon className="w-5 h-5" />
-                </motion.div>
-                <span className={`text-xs font-medium transition-colors ${
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                }`}>
-                  {item.label}
-                </span>
-                {isActive && (
-                  <motion.div
-                    className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full"
-                    layoutId="activeIndicator"
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      </motion.nav>
+        <Plus className="w-6 h-6" />
+      </motion.button>
 
-      {/* Notifications Panel */}
-      <AnimatePresence>
-        {showNotifications && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-16 right-4 w-72 bg-card border border-border rounded-xl shadow-xl p-4 z-50"
-          >
-            <h3 className="font-semibold text-foreground mb-3">Notifications</h3>
-            <div className="space-y-2">
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-sm text-foreground">Translation completed</p>
-                <p className="text-xs text-muted-foreground">2 minutes ago</p>
-              </div>
-              <div className="p-3 bg-muted/50 rounded-lg">
-                <p className="text-sm text-foreground">New feature available</p>
-                <p className="text-xs text-muted-foreground">1 hour ago</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border z-30">
+        <div className="flex items-center justify-around py-2">
+          {navItems.map((item, index) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center py-2 px-3 rounded-lg transition-all ${
+                isActivePath(item.path)
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <item.icon className="w-5 h-5 mb-1" />
+              <span className="text-xs font-medium">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {/* Wallet Balance (if authenticated) */}
+      {isAuthenticated && user && (
+        <motion.div
+          className="fixed top-4 right-4 z-30 bg-card/95 backdrop-blur-md rounded-full px-3 py-2 border border-border"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <div className="flex items-center space-x-2 text-sm">
+            <Wallet className="w-4 h-4 text-primary" />
+            <span className="font-medium text-foreground">
+              ${(user.walletBalance || 0).toFixed(2)}
+            </span>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
