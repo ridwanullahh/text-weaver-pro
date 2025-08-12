@@ -19,6 +19,29 @@ interface PlanLimits {
   features: string[];
 }
 
+interface User {
+  id: string;
+  uid: string;
+  email: string;
+  fullName: string;
+  plan: string;
+  walletBalance: number;
+  monthlyPagesUsed?: number;
+  monthlyTranslationsUsed?: number;
+  dailyTextTranslations?: number;
+  planUpgradedAt?: string;
+}
+
+interface UserUpdate {
+  walletBalance?: number;
+  monthlyPagesUsed?: number;
+  monthlyTranslationsUsed?: number;
+  plan?: string;
+  planUpgradedAt?: string;
+}
+
+type UpdateUserFunction = (updates: UserUpdate) => Promise<void>;
+
 class MonetizationService {
   private readonly PAGE_PRICE = 0.10; // $0.10 per page
   private readonly TRANSLATION_PRICE = 0.05; // $0.05 per translation
@@ -84,7 +107,7 @@ class MonetizationService {
     };
   }
 
-  checkPlanLimits(user: any, operation: 'pages' | 'translations', amount: number): { canProceed: boolean; message: string; remaining: number } {
+  checkPlanLimits(user: User, operation: 'pages' | 'translations', amount: number): { canProceed: boolean; message: string; remaining: number } {
     if (!user) {
       return { canProceed: false, message: 'Please log in to continue', remaining: 0 };
     }
@@ -121,7 +144,7 @@ class MonetizationService {
     };
   }
 
-  checkWalletBalance(user: any, requiredAmount: number): { canProceed: boolean; message: string } {
+  checkWalletBalance(user: User, requiredAmount: number): { canProceed: boolean; message: string } {
     if (!user) {
       return { canProceed: false, message: 'Please log in to continue' };
     }
@@ -136,7 +159,7 @@ class MonetizationService {
     return { canProceed: true, message: '' };
   }
 
-  checkDailyTranslationLimit(user: any): { canProceed: boolean; remaining: number; message: string } {
+  checkDailyTranslationLimit(user: User): { canProceed: boolean; remaining: number; message: string } {
     if (!user) {
       return { canProceed: false, remaining: 0, message: 'Please log in to continue' };
     }
@@ -159,7 +182,7 @@ class MonetizationService {
     };
   }
 
-  async deductFromWallet(user: any, amount: number, updateUser: (updates: any) => Promise<void>): Promise<boolean> {
+  async deductFromWallet(user: User, amount: number, updateUser: UpdateUserFunction): Promise<boolean> {
     try {
       if (user.walletBalance < amount) {
         throw new Error('Insufficient funds');
@@ -176,7 +199,7 @@ class MonetizationService {
     }
   }
 
-  async processPayment(user: any, amount: number, operation: string, updateUser: (updates: any) => Promise<void>): Promise<boolean> {
+  async processPayment(user: User, amount: number, operation: string, updateUser: UpdateUserFunction): Promise<boolean> {
     try {
       if (user.walletBalance < amount) {
         throw new Error('Insufficient funds');
@@ -186,7 +209,7 @@ class MonetizationService {
       const newBalance = user.walletBalance - amount;
       
       // Update usage counters
-      const updates: any = { walletBalance: newBalance };
+      const updates: UserUpdate = { walletBalance: newBalance };
       
       if (operation === 'pages') {
         updates.monthlyPagesUsed = (user.monthlyPagesUsed || 0) + 1;
@@ -202,7 +225,7 @@ class MonetizationService {
     }
   }
 
-  async upgradeUserPlan(user: any, newPlan: string, updateUser: (updates: any) => Promise<void>): Promise<boolean> {
+  async upgradeUserPlan(user: User, newPlan: string, updateUser: UpdateUserFunction): Promise<boolean> {
     try {
       if (!this.PLAN_LIMITS[newPlan]) {
         throw new Error('Invalid plan');
