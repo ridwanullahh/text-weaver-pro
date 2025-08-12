@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
@@ -45,40 +45,37 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-md mx-auto"
+      className="w-full"
     >
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">Welcome Back</CardTitle>
-          <p className="text-white/70">Sign in to your account</p>
-        </CardHeader>
-        <CardContent>
+      <Card className="border-border/50 shadow-lg">
+        <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="relative">
-              <Mail className="absolute left-3 top-3 h-5 w-5 text-white/50" />
+              <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
               <Input
                 type="email"
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                className="pl-10 h-12"
                 required
               />
             </div>
+            
             <div className="relative">
-              <Lock className="absolute left-3 top-3 h-5 w-5 text-white/50" />
+              <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
               <Input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 pr-10 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                className="pl-10 pr-10 h-12"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-white/50 hover:text-white/70"
+                className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -89,7 +86,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
                 <button
                   type="button"
                   onClick={onForgotPassword}
-                  className="text-purple-400 hover:text-purple-300 text-sm underline"
+                  className="text-primary hover:text-primary/80 text-sm underline"
                 >
                   Forgot Password?
                 </button>
@@ -98,7 +95,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onForgotPassword }) => {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+              className="w-full h-12 gradient-primary text-primary-foreground font-medium"
               disabled={isLoading}
             >
               {isLoading ? 'Signing In...' : 'Sign In'}

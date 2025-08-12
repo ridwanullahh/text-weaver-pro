@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeSDK } from './services/sdkService';
+import MobileLayout from './components/layout/MobileLayout';
+import PageLayout from './components/shared/PageLayout';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import Index from './pages/Index';
@@ -33,12 +35,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin text-6xl mb-4">⚙️</div>
-          <h2 className="text-2xl font-bold text-white">Loading...</h2>
+      <MobileLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin text-6xl mb-4">⚙️</div>
+            <h2 className="text-2xl font-bold text-foreground">Loading...</h2>
+          </div>
         </div>
-      </div>
+      </MobileLayout>
     );
   }
   
@@ -50,16 +54,26 @@ const AuthRedirect = () => {
   
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin text-6xl mb-4">⚙️</div>
-          <h2 className="text-2xl font-bold text-white">Loading...</h2>
+      <MobileLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin text-6xl mb-4">⚙️</div>
+            <h2 className="text-2xl font-bold text-foreground">Loading...</h2>
+          </div>
         </div>
-      </div>
+      </MobileLayout>
     );
   }
   
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Auth />;
+};
+
+const PublicPageWrapper = ({ children }: { children: React.ReactNode }) => {
+  return <PageLayout>{children}</PageLayout>;
+};
+
+const AppPageWrapper = ({ children }: { children: React.ReactNode }) => {
+  return <MobileLayout>{children}</MobileLayout>;
 };
 
 function App() {
@@ -68,29 +82,31 @@ function App() {
       <Router>
         <div className="App min-h-screen">
           <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Landing />} />
+            {/* Public Routes with PageLayout */}
+            <Route path="/" element={<PublicPageWrapper><Landing /></PublicPageWrapper>} />
+            <Route path="/features" element={<PublicPageWrapper><Features /></PublicPageWrapper>} />
+            <Route path="/pricing" element={<PublicPageWrapper><Pricing /></PublicPageWrapper>} />
+            <Route path="/blog" element={<PublicPageWrapper><Blog /></PublicPageWrapper>} />
+            <Route path="/blog/:slug" element={<PublicPageWrapper><BlogSingle /></PublicPageWrapper>} />
+            <Route path="/docs" element={<PublicPageWrapper><Documentation /></PublicPageWrapper>} />
+            <Route path="/documentation" element={<PublicPageWrapper><Documentation /></PublicPageWrapper>} />
+            <Route path="/contact" element={<PublicPageWrapper><Contact /></PublicPageWrapper>} />
+            <Route path="/terms" element={<PublicPageWrapper><Terms /></PublicPageWrapper>} />
+            <Route path="/privacy" element={<PublicPageWrapper><Privacy /></PublicPageWrapper>} />
+            <Route path="/request-invite" element={<PublicPageWrapper><RequestInvite /></PublicPageWrapper>} />
+            
+            {/* Auth Routes */}
             <Route path="/login" element={<AuthRedirect />} />
             <Route path="/auth" element={<Navigate to="/login" replace />} />
             <Route path="/register" element={<AuthRedirect />} />
             <Route path="/signup" element={<AuthRedirect />} />
-            <Route path="/features" element={<Features />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/blog/:slug" element={<BlogSingle />} />
-            <Route path="/docs" element={<Documentation />} />
-            <Route path="/documentation" element={<Documentation />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/request-invite" element={<RequestInvite />} />
             
-            {/* Protected Routes */}
+            {/* Protected App Routes with MobileLayout */}
             <Route 
               path="/dashboard" 
               element={
                 <ProtectedRoute>
-                  <Index />
+                  <AppPageWrapper><Index /></AppPageWrapper>
                 </ProtectedRoute>
               } 
             />
@@ -98,7 +114,7 @@ function App() {
               path="/app" 
               element={
                 <ProtectedRoute>
-                  <TranslationApp />
+                  <AppPageWrapper><TranslationApp /></AppPageWrapper>
                 </ProtectedRoute>
               } 
             />
@@ -106,19 +122,18 @@ function App() {
               path="/admin" 
               element={
                 <ProtectedRoute>
-                  <Admin />
+                  <AppPageWrapper><Admin /></AppPageWrapper>
                 </ProtectedRoute>
               } 
             />
             
-            {/* Legacy Routes - Redirect to new structure */}
+            {/* Legacy Routes */}
             <Route path="/index" element={<Navigate to="/dashboard" replace />} />
             
             {/* 404 Route */}
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<PublicPageWrapper><NotFound /></PublicPageWrapper>} />
           </Routes>
           
-          {/* Toast Notifications */}
           <Toaster />
         </div>
       </Router>
