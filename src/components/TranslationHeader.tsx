@@ -15,8 +15,8 @@ const TranslationHeader = () => {
             className="flex justify-center items-center mb-6"
           >
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full blur-lg opacity-50"></div>
-              <div className="relative bg-gradient-to-r from-purple-500 to-blue-500 p-4 rounded-full">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full blur-lg opacity-50"></div>
+              <div className="relative bg-gradient-to-r from-blue-500 to-cyan-500 p-4 rounded-full">
                 <Globe className="w-8 h-8 text-white" />
               </div>
             </div>
@@ -26,7 +26,7 @@ const TranslationHeader = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-white via-purple-200 to-blue-200 bg-clip-text text-transparent mb-4"
+            className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-white via-blue-200 to-cyan-200 bg-clip-text text-transparent mb-4"
           >
             TextWeaver Pro
           </motion.h1>
@@ -47,7 +47,7 @@ const TranslationHeader = () => {
             className="flex flex-wrap justify-center gap-6 text-white/60"
           >
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
+              <Sparkles className="w-5 h-5 text-blue-400" />
               <span>AI-Powered Translation</span>
             </div>
             <div className="flex items-center gap-2">

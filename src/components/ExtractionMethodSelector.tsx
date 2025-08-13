@@ -25,7 +25,7 @@ const ExtractionMethodSelector: React.FC<ExtractionMethodSelectorProps> = ({
         <motion.div
           className={`relative cursor-pointer rounded-xl p-4 border-2 transition-all duration-300 ${
             method === 'ai'
-              ? 'border-purple-500 bg-purple-500/20'
+              ? 'border-blue-500 bg-blue-500/20'
               : 'border-white/20 bg-white/5 hover:bg-white/10'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={() => !disabled && onMethodChange('ai')}
@@ -33,13 +33,13 @@ const ExtractionMethodSelector: React.FC<ExtractionMethodSelectorProps> = ({
           whileTap={!disabled ? { scale: 0.98 } : {}}
         >
           <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-lg ${method === 'ai' ? 'bg-purple-500' : 'bg-white/20'}`}>
+            <div className={`p-2 rounded-lg ${method === 'ai' ? 'bg-blue-500' : 'bg-white/20'}`}>
               <Bot className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <h5 className="font-medium text-white">AI-Powered Extraction</h5>
-                <span className="text-xs bg-gradient-to-r from-purple-500 to-blue-500 text-white px-2 py-1 rounded-full">
+                <span className="text-xs bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-2 py-1 rounded-full">
                   Recommended
                 </span>
               </div>

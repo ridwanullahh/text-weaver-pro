@@ -63,10 +63,10 @@ const SmartTranslationManager: React.FC<SmartTranslationManagerProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 backdrop-blur-md rounded-3xl p-8 border border-purple-500/20"
+      className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-md rounded-3xl p-8 border border-blue-500/20"
     >
       <div className="flex items-center gap-3 mb-6">
-        <Brain className="w-6 h-6 text-purple-400" />
+        <Brain className="w-6 h-6 text-blue-400" />
         <h3 className="text-2xl font-bold text-white">Smart Translation Engine</h3>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -109,7 +109,7 @@ const SmartTranslationManager: React.FC<SmartTranslationManagerProps> = ({
             <motion.button
               onClick={() => setSmartMode(!smartMode)}
               className={`w-12 h-6 rounded-full transition-all duration-300 ${
-                smartMode ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-white/20'
+                smartMode ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-white/20'
               }`}
               whileTap={{ scale: 0.95 }}
             >
@@ -176,7 +176,7 @@ const SmartTranslationManager: React.FC<SmartTranslationManagerProps> = ({
                 }}
                 className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-300 ${
                   priorityLanguages.includes(lang)
-                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
                     : 'bg-white/10 text-white/70 hover:bg-white/20'
                 }`}
                 whileHover={{ scale: 1.05 }}
@@ -193,7 +193,7 @@ const SmartTranslationManager: React.FC<SmartTranslationManagerProps> = ({
           <motion.button
             onClick={() => setAdaptiveChunking(!adaptiveChunking)}
             className={`w-12 h-6 rounded-full transition-all duration-300 ${
-              adaptiveChunking ? 'bg-gradient-to-r from-purple-500 to-blue-500' : 'bg-white/20'
+              adaptiveChunking ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 'bg-white/20'
             }`}
             whileTap={{ scale: 0.95 }}
           >
@@ -210,7 +210,7 @@ const SmartTranslationManager: React.FC<SmartTranslationManagerProps> = ({
       <div className="mt-8 pt-6 border-t border-white/10">
         <motion.button
           onClick={handleSmartSettingsUpdate}
-          className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+          className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >

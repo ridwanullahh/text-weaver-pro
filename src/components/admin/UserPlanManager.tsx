@@ -39,7 +39,7 @@ const UserPlanManager = ({ users, onUpdateUser }: UserPlanManagerProps) => {
   const planColors = {
     free: 'bg-gray-100 text-gray-800',
     basic: 'bg-blue-100 text-blue-800',
-    pro: 'bg-purple-100 text-purple-800',
+    pro: 'bg-cyan-100 text-cyan-800',
     enterprise: 'bg-amber-100 text-amber-800'
   };
 

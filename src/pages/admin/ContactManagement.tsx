@@ -167,14 +167,14 @@ const ContactManagement = () => {
             >
               <Card 
                 className={`bg-white/10 backdrop-blur-md border-white/20 cursor-pointer transition-all hover:bg-white/15 ${
-                  selectedContact?.id === contact.id ? 'ring-2 ring-purple-500' : ''
+                  selectedContact?.id === contact.id ? 'ring-2 ring-blue-500' : ''
                 }`}
                 onClick={() => setSelectedContact(contact)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="w-10 h-10 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full flex items-center justify-center">
                         <User className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -298,7 +298,7 @@ const ContactManagement = () => {
                   <Button
                     onClick={sendReply}
                     disabled={!replyMessage.trim()}
-                    className="bg-gradient-to-r from-purple-500 to-blue-500"
+                    className="bg-gradient-to-r from-blue-500 to-cyan-500"
                   >
                     <Reply className="w-4 h-4 mr-2" />
                     Send Reply

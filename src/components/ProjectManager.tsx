@@ -289,7 +289,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
                       </div>
                       <div className="w-full bg-white/10 rounded-full h-2">
                         <div 
-                          className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                          className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${project.progress || 0}%` }}
                         />
                       </div>
@@ -301,7 +301,7 @@ const ProjectManager: React.FC<ProjectManagerProps> = ({
                 <div className="flex flex-wrap gap-2 flex-shrink-0">
                   <Button
                     onClick={() => onProjectSelect(project)}
-                    className="bg-purple-500 hover:bg-purple-600"
+                    className="bg-blue-500 hover:bg-blue-600"
                     size="sm"
                   >
                     <FileText className="w-4 h-4 mr-1" />

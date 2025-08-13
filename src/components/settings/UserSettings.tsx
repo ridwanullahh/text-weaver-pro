@@ -257,7 +257,7 @@ const UserSettings = () => {
         <Button
           onClick={handleSaveSettings}
           disabled={isLoading}
-          className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 px-8"
+          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 px-8"
         >
           {isLoading ? (
             'Saving...'

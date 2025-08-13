@@ -35,7 +35,7 @@ const ExtractionSettings: React.FC<ExtractionSettingsProps> = ({
     <Card className="bg-white/10 backdrop-blur-md border-white/20">
       <CardHeader>
         <CardTitle className="text-white flex items-center gap-2">
-          <Settings className="w-5 h-5 text-purple-400" />
+          <Settings className="w-5 h-5 text-blue-400" />
           AI Extraction Settings
         </CardTitle>
       </CardHeader>
@@ -48,7 +48,7 @@ const ExtractionSettings: React.FC<ExtractionSettingsProps> = ({
                 checked={settings.ignoreHeaders}
                 onCheckedChange={(checked) => handleSettingChange('ignoreHeaders', checked as boolean)}
                 disabled={disabled}
-                className="border-white/30 data-[state=checked]:bg-purple-500"
+                className="border-white/30 data-[state=checked]:bg-blue-500"
               />
               <Label htmlFor="ignoreHeaders" className="text-white/80 text-sm">
                 Ignore page headers
@@ -61,7 +61,7 @@ const ExtractionSettings: React.FC<ExtractionSettingsProps> = ({
                 checked={settings.ignoreFooters}
                 onCheckedChange={(checked) => handleSettingChange('ignoreFooters', checked as boolean)}
                 disabled={disabled}
-                className="border-white/30 data-[state=checked]:bg-purple-500"
+                className="border-white/30 data-[state=checked]:bg-blue-500"
               />
               <Label htmlFor="ignoreFooters" className="text-white/80 text-sm">
                 Ignore page footers
@@ -74,7 +74,7 @@ const ExtractionSettings: React.FC<ExtractionSettingsProps> = ({
                 checked={settings.ignorePageNumbers}
                 onCheckedChange={(checked) => handleSettingChange('ignorePageNumbers', checked as boolean)}
                 disabled={disabled}
-                className="border-white/30 data-[state=checked]:bg-purple-500"
+                className="border-white/30 data-[state=checked]:bg-blue-500"
               />
               <Label htmlFor="ignorePageNumbers" className="text-white/80 text-sm">
                 Ignore page numbers
@@ -89,7 +89,7 @@ const ExtractionSettings: React.FC<ExtractionSettingsProps> = ({
                 checked={settings.ignoreFootnotes}
                 onCheckedChange={(checked) => handleSettingChange('ignoreFootnotes', checked as boolean)}
                 disabled={disabled}
-                className="border-white/30 data-[state=checked]:bg-purple-500"
+                className="border-white/30 data-[state=checked]:bg-blue-500"
               />
               <Label htmlFor="ignoreFootnotes" className="text-white/80 text-sm">
                 Ignore footnotes
@@ -102,7 +102,7 @@ const ExtractionSettings: React.FC<ExtractionSettingsProps> = ({
                 checked={settings.maintainFormatting}
                 onCheckedChange={(checked) => handleSettingChange('maintainFormatting', checked as boolean)}
                 disabled={disabled}
-                className="border-white/30 data-[state=checked]:bg-purple-500"
+                className="border-white/30 data-[state=checked]:bg-blue-500"
               />
               <Label htmlFor="maintainFormatting" className="text-white/80 text-sm">
                 Maintain text formatting
@@ -115,7 +115,7 @@ const ExtractionSettings: React.FC<ExtractionSettingsProps> = ({
                 checked={settings.separatePages}
                 onCheckedChange={(checked) => handleSettingChange('separatePages', checked as boolean)}
                 disabled={disabled}
-                className="border-white/30 data-[state=checked]:bg-purple-500"
+                className="border-white/30 data-[state=checked]:bg-blue-500"
               />
               <Label htmlFor="separatePages" className="text-white/80 text-sm">
                 Separate pages clearly

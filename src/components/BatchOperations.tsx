@@ -203,7 +203,7 @@ const BatchOperations: React.FC<BatchOperationsProps> = ({
             <Button
               onClick={executeBatchAction}
               disabled={!batchAction || isProcessing}
-              className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
             >
               {isProcessing ? 'Processing...' : `Execute on ${selectedProjects.size} projects`}
             </Button>

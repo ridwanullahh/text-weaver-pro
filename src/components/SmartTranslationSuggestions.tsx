@@ -135,7 +135,7 @@ const SmartTranslationSuggestions: React.FC<SmartTranslationSuggestionsProps> = 
         <CardTitle className="text-white flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-yellow-400" />
           Smart Translation Suggestions
-          <Badge className="bg-purple-500/20 text-purple-300">
+          <Badge className="bg-blue-500/20 text-blue-300">
             {suggestions.length} suggestions
           </Badge>
         </CardTitle>

@@ -149,14 +149,14 @@ const APIKeySetup: React.FC = () => {
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Settings className="w-6 h-6 text-purple-400" />
+          <Settings className="w-6 h-6 text-blue-400" />
           <h3 className="text-2xl font-bold text-white">AI Provider Setup</h3>
           {activeProvider && <CheckCircle className="w-6 h-6 text-green-400" />}
         </div>
         
         <motion.button
           onClick={() => setShowSetup(true)}
-          className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:shadow-lg transition-all duration-300"
+          className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-4 py-2 rounded-xl font-medium flex items-center gap-2 hover:shadow-lg transition-all duration-300"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -234,7 +234,7 @@ const APIKeySetup: React.FC = () => {
               <select
                 value={currentConfig.provider}
                 onChange={(e) => setCurrentConfig({ ...currentConfig, provider: e.target.value })}
-                className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {AI_PROVIDERS.map(provider => (
                   <option key={provider.id} value={provider.id} className="bg-gray-800 text-white">
@@ -254,7 +254,7 @@ const APIKeySetup: React.FC = () => {
                   value={currentConfig.apiKey}
                   onChange={(e) => setCurrentConfig({ ...currentConfig, apiKey: e.target.value })}
                   placeholder="Enter your API key..."
-                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 pr-12 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 pr-12 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <motion.button
                   type="button"
@@ -276,7 +276,7 @@ const APIKeySetup: React.FC = () => {
                 <select
                   value={currentConfig.model || ''}
                   onChange={(e) => setCurrentConfig({ ...currentConfig, model: e.target.value })}
-                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="" className="bg-gray-800 text-white">
                     Default ({getProviderInfo(currentConfig.provider)?.defaultModel})
@@ -293,7 +293,7 @@ const APIKeySetup: React.FC = () => {
                   value={currentConfig.model || ''}
                   onChange={(e) => setCurrentConfig({ ...currentConfig, model: e.target.value })}
                   placeholder={getProviderInfo(currentConfig.provider)?.defaultModel || 'Enter model name...'}
-                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               )}
             </div>
@@ -308,7 +308,7 @@ const APIKeySetup: React.FC = () => {
                   value={currentConfig.baseUrl || ''}
                   onChange={(e) => setCurrentConfig({ ...currentConfig, baseUrl: e.target.value })}
                   placeholder={getProviderInfo(currentConfig.provider)?.baseUrl || 'https://api.example.com/v1'}
-                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full bg-white/5 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             )}
@@ -317,7 +317,7 @@ const APIKeySetup: React.FC = () => {
               <motion.button
                 onClick={handleSaveConfig}
                 disabled={isValidating}
-                className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 hover:shadow-lg transition-all duration-300 disabled:opacity-50"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >

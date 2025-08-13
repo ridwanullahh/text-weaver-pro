@@ -44,7 +44,7 @@ const MobileNav = () => {
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                     location.pathname === item.path
-                      ? 'bg-purple-500/20 text-purple-300'
+                      ? 'bg-blue-500/20 text-blue-300'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
                   }`}
                 >

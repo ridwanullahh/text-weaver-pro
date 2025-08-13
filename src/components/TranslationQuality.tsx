@@ -49,7 +49,7 @@ const TranslationQuality: React.FC<TranslationQualityProps> = ({ project }) => {
         className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20"
       >
         <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <Award className="w-6 h-6 text-purple-400" />
+          <Award className="w-6 h-6 text-blue-400" />
           Translation Quality Analysis
         </h3>
 
@@ -65,7 +65,7 @@ const TranslationQuality: React.FC<TranslationQualityProps> = ({ project }) => {
                   </div>
                   <div className="w-full bg-white/10 rounded-full h-2">
                     <motion.div
-                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full"
+                      className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full"
                       initial={{ width: 0 }}
                       animate={{ width: `${score}%` }}
                       transition={{ duration: 1, delay: 0.2 }}
@@ -83,7 +83,7 @@ const TranslationQuality: React.FC<TranslationQualityProps> = ({ project }) => {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.8, delay: 0.5 }}
-                className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 mb-4"
+                className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 mb-4"
               >
                 <span className="text-4xl font-bold text-white">{qualityMetrics.overall}%</span>
               </motion.div>
@@ -198,7 +198,7 @@ const TranslationQuality: React.FC<TranslationQualityProps> = ({ project }) => {
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               placeholder="Share your thoughts on the translation quality..."
-              className="w-full h-32 bg-white/5 border border-white/20 rounded-2xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full h-32 bg-white/5 border border-white/20 rounded-2xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 

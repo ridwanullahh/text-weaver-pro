@@ -195,7 +195,7 @@ const WalletManagement = () => {
                     onClick={() => setSelectedUser(user)}
                     className={`p-4 rounded-lg cursor-pointer transition-all ${
                       selectedUser?.id === user.id
-                        ? 'bg-purple-500/20 border border-purple-500/30'
+                        ? 'bg-blue-500/20 border border-blue-500/30'
                         : 'bg-white/5 hover:bg-white/10'
                     }`}
                   >

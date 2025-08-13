@@ -15,7 +15,7 @@ const Navigation = () => {
   return (
     <nav className="bg-black/20 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <Link to="/" className="text-2xl font-bold text-white hover:text-purple-300 transition-colors">
+        <Link to="/" className="text-2xl font-bold text-white hover:text-blue-300 transition-colors">
           TextWeaver Pro
         </Link>
         
@@ -66,7 +66,7 @@ const Navigation = () => {
           {isAuthenticated ? (
             <>
               <Link to="/app">
-                <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+                <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
                   Dashboard
                 </Button>
               </Link>
@@ -86,7 +86,7 @@ const Navigation = () => {
                 </Button>
               </Link>
               <Link to="/register">
-                <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+                <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
                   Get Started
                 </Button>
               </Link>

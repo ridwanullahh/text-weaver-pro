@@ -20,13 +20,13 @@ const Admin = () => {
   // Redirect if not admin
   if (!user?.isAdmin) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-900 flex items-center justify-center">
         <Card className="bg-white/10 backdrop-blur-md border-white/20 p-8">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-white mb-4">Access Denied</h2>
             <p className="text-white/60 mb-6">You don't have permission to access this area.</p>
             <Link to="/">
-              <Button className="bg-gradient-to-r from-purple-500 to-blue-500">
+              <Button className="bg-gradient-to-r from-blue-500 to-cyan-500">
                 Go Home
               </Button>
             </Link>
@@ -47,11 +47,11 @@ const Admin = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-900">
       {/* Background Effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse delay-1000"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse delay-1000"></div>
       </div>
 
       <div className="relative z-10">
@@ -93,7 +93,7 @@ const Admin = () => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`px-4 md:px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap ${
                       activeTab === tab.id
-                        ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg'
+                        ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
                         : 'text-white/70 hover:text-white hover:bg-white/10'
                     }`}
                     whileHover={{ scale: 1.02 }}

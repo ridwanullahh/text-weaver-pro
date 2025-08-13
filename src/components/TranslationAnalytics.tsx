@@ -53,10 +53,10 @@ const TranslationAnalytics: React.FC<TranslationAnalyticsProps> = ({ projects })
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-2xl p-6"
+          className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-2xl p-6"
         >
           <div className="flex items-center gap-3 mb-3">
-            <Target className="w-6 h-6 text-purple-400" />
+            <Target className="w-6 h-6 text-blue-400" />
             <span className="text-white/80 font-medium">Total Projects</span>
           </div>
           <p className="text-3xl font-bold text-white">{totalProjects}</p>

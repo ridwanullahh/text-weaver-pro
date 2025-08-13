@@ -336,7 +336,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
             className={`
               border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer
               ${isDragActive 
-                ? 'border-purple-400 bg-purple-500/10' 
+                ? 'border-blue-400 bg-blue-500/10' 
                 : 'border-white/30 hover:border-white/50'
               }
               ${(disabled || isProcessing) ? 'opacity-50 cursor-not-allowed' : ''}
@@ -345,7 +345,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
             <input {...getInputProps()} />
             <div className="flex items-center justify-center mb-4">
               <Upload className="w-12 h-12 text-white/60 mr-2" />
-              {extractionMethod === 'ai' && <Sparkles className="w-6 h-6 text-purple-400" />}
+              {extractionMethod === 'ai' && <Sparkles className="w-6 h-6 text-blue-400" />}
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">
               {isDragActive ? 'Drop files here' : 'Upload Documents'}
@@ -356,7 +356,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
               <span className="text-xs">Supports: PDF, DOCX, DOC, TXT, EPUB, XLS, XLSX, CSV</span>
               <br />
               {extractionMethod === 'ai' ? (
-                <span className="text-xs text-purple-300">✨ AI-powered extraction enabled</span>
+                <span className="text-xs text-blue-300">✨ AI-powered extraction enabled</span>
               ) : (
                 <span className="text-xs text-green-300">⚡ Fast traditional extraction enabled</span>
               )}
@@ -417,7 +417,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
 
           {/* Cost Display - Only for AI extraction */}
           {user && extractionMethod === 'ai' && files.length > 0 && (
-            <div className="mt-6 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl">
+            <div className="mt-6 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Wallet className="w-4 h-4 text-blue-400" />
@@ -459,7 +459,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
                 onClick={processFiles}
                 className={`w-full ${
                   extractionMethod === 'ai' 
-                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600' 
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600' 
                     : 'bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600'
                 }`}
                 size="lg"

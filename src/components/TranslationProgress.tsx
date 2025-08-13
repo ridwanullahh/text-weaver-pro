@@ -138,8 +138,8 @@ const TranslationProgress: React.FC<TranslationProgressProps> = ({ project }) =>
               <div className="text-blue-300">Time Remaining</div>
               <div className="text-white font-medium">{formatTime(estimatedTime)}</div>
             </div>
-            <div className="text-center p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
-              <div className="text-purple-300">Tokens Used</div>
+            <div className="text-center p-2 bg-blue-500/20 rounded-lg border border-blue-500/30">
+              <div className="text-blue-300">Tokens Used</div>
               <div className="text-white font-medium">{tokensUsed.toLocaleString()}</div>
             </div>
           </div>

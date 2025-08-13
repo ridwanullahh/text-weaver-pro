@@ -131,7 +131,7 @@ const UserManagement = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full flex items-center justify-center">
                       <span className="text-white font-bold">
                         {user.fullName?.charAt(0) || user.email.charAt(0).toUpperCase()}
                       </span>

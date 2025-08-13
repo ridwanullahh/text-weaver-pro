@@ -55,7 +55,7 @@ const RequestInvite = () => {
                   Thank you for your interest. We'll review your request and send you an invitation code within 24-48 hours.
                 </p>
                 <Link to="/login">
-                  <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+                  <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
                     Back to Sign In
                   </Button>
                 </Link>

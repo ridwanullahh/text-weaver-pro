@@ -139,7 +139,7 @@ const UserDashboard = () => {
                   <p className="text-white/60 text-sm">This Month</p>
                   <p className="text-2xl font-bold text-white">{stats.monthlyUsage}</p>
                 </div>
-                <Calendar className="w-8 h-8 text-purple-400" />
+                <Calendar className="w-8 h-8 text-blue-400" />
               </div>
             </CardContent>
           </Card>
@@ -259,7 +259,7 @@ const UserDashboard = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-white/60">Account Type</span>
-                  <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
                     {user?.roles?.includes('admin') ? 'Admin' : 'Standard'}
                   </Badge>
                 </div>

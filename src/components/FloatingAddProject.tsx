@@ -23,7 +23,7 @@ const FloatingAddProject: React.FC<FloatingAddProjectProps> = ({
     >
       <Button
         onClick={onAddProject}
-        className="h-14 w-14 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-200"
+        className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 shadow-lg hover:shadow-xl transition-all duration-200"
         size="lg"
       >
         <Plus className="w-6 h-6" />

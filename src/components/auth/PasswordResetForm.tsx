@@ -187,7 +187,7 @@ const PasswordResetForm: React.FC<PasswordResetFormProps> = ({ onBack }) => {
               </div>
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
                 disabled={isLoading}
               >
                 {isLoading ? 'Sending...' : 'Send Reset Code'}
@@ -211,7 +211,7 @@ const PasswordResetForm: React.FC<PasswordResetFormProps> = ({ onBack }) => {
               </div>
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
                 disabled={otp.length !== 6}
               >
                 Verify Code
@@ -267,7 +267,7 @@ const PasswordResetForm: React.FC<PasswordResetFormProps> = ({ onBack }) => {
               </div>
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
                 disabled={isLoading}
               >
                 {isLoading ? 'Resetting...' : 'Reset Password'}

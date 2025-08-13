@@ -194,7 +194,7 @@ const DocumentationManagement = () => {
         </div>
         <Button
           onClick={() => setIsDialogOpen(true)}
-          className="bg-gradient-to-r from-purple-500 to-blue-500"
+          className="bg-gradient-to-r from-blue-500 to-cyan-500"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Document
@@ -247,7 +247,7 @@ const DocumentationManagement = () => {
                       <Badge variant="outline" className="border-white/20 text-white/70">
                         Order: {doc.order}
                       </Badge>
-                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                      <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30">
                         {categories.find(c => c.value === doc.category)?.label || doc.category}
                       </Badge>
                     </div>
@@ -313,7 +313,7 @@ const DocumentationManagement = () => {
             </p>
             <Button
               onClick={() => setIsDialogOpen(true)}
-              className="bg-gradient-to-r from-purple-500 to-blue-500"
+              className="bg-gradient-to-r from-blue-500 to-cyan-500"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create First Document
@@ -398,7 +398,7 @@ const DocumentationManagement = () => {
               </Button>
               <Button
                 type="submit"
-                className="bg-gradient-to-r from-purple-500 to-blue-500"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500"
               >
                 {editingDoc ? 'Update Document' : 'Create Document'}
               </Button>

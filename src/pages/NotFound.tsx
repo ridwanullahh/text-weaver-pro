@@ -6,7 +6,7 @@ import { Home, ArrowLeft } from 'lucide-react';
 
 const NotFound = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-cyan-900 flex items-center justify-center px-4">
       <div className="text-center">
         <div className="text-8xl font-bold text-white/20 mb-4">404</div>
         <h1 className="text-4xl font-bold text-white mb-4">Page Not Found</h1>
@@ -15,7 +15,7 @@ const NotFound = () => {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link to="/">
-            <Button className="bg-gradient-to-r from-purple-500 to-blue-500">
+            <Button className="bg-gradient-to-r from-blue-500 to-cyan-500">
               <Home className="w-4 h-4 mr-2" />
               Go Home
             </Button>

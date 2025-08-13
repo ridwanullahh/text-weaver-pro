@@ -26,7 +26,7 @@ const ExtractionProgress: React.FC<ExtractionProgressProps> = ({
     switch (stage) {
       case 'analyzing':
         return {
-          icon: <Bot className="w-5 h-5 text-purple-400 animate-pulse" />,
+          icon: <Bot className="w-5 h-5 text-blue-400 animate-pulse" />,
           title: 'Analyzing Document Structure',
           description: 'AI is understanding the document layout and content structure...'
         };
@@ -88,8 +88,8 @@ const ExtractionProgress: React.FC<ExtractionProgressProps> = ({
           </div>
           
           {stage === 'extracting' && (
-            <div className="mt-4 p-3 bg-purple-500/20 border border-purple-500/30 rounded-lg">
-              <p className="text-xs text-purple-300">
+            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+              <p className="text-xs text-blue-300">
                 <Bot className="w-3 h-3 inline mr-1" />
                 AI is carefully analyzing each page to extract only the main content while filtering out headers, footers, and other distractions.
               </p>

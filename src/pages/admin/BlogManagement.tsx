@@ -185,7 +185,7 @@ const BlogManagement = () => {
         </div>
         <Button
           onClick={() => setIsDialogOpen(true)}
-          className="bg-gradient-to-r from-purple-500 to-blue-500"
+          className="bg-gradient-to-r from-blue-500 to-cyan-500"
         >
           <Plus className="w-4 h-4 mr-2" />
           New Post
@@ -284,7 +284,7 @@ const BlogManagement = () => {
             </p>
             <Button
               onClick={() => setIsDialogOpen(true)}
-              className="bg-gradient-to-r from-purple-500 to-blue-500"
+              className="bg-gradient-to-r from-blue-500 to-cyan-500"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create First Post
@@ -396,7 +396,7 @@ const BlogManagement = () => {
               </Button>
               <Button
                 type="submit"
-                className="bg-gradient-to-r from-purple-500 to-blue-500"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500"
               >
                 {editingPost ? 'Update Post' : 'Create Post'}
               </Button>

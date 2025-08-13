@@ -94,7 +94,7 @@ const AdminDashboard = () => {
           title: 'New contact message',
           description: `From ${message.name}`,
           timestamp: message.submittedAt,
-          icon: <MessageSquare className="w-4 h-4 text-purple-400" />
+          icon: <MessageSquare className="w-4 h-4 text-blue-400" />
         }))
       ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
        .slice(0, 8);
@@ -126,8 +126,8 @@ const AdminDashboard = () => {
       title: 'Total Projects',
       value: stats.totalProjects,
       change: '+15%',
-      icon: <FileText className="w-6 h-6 text-purple-400" />,
-      color: 'purple'
+      icon: <FileText className="w-6 h-6 text-blue-400" />,
+      color: 'blue'
     },
     {
       title: 'Completed Projects',

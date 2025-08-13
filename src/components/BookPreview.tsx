@@ -26,12 +26,12 @@ const BookPreview: React.FC<BookPreviewProps> = ({ project, metadata }) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-3xl p-6"
+      className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-3xl p-6"
     >
       <div className="flex items-start gap-6">
         {/* Book Cover Mockup */}
         <div className="flex-shrink-0">
-          <div className="w-32 h-40 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg shadow-xl flex items-center justify-center relative overflow-hidden">
+          <div className="w-32 h-40 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-lg shadow-xl flex items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
             <BookOpen className="w-12 h-12 text-white/80" />
             <div className="absolute bottom-2 left-2 right-2">

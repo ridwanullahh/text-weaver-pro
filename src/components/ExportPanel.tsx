@@ -327,7 +327,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ project, onExportComplete }) 
               id="include-original"
               checked={includeOriginal}
               onCheckedChange={(checked) => setIncludeOriginal(checked === true)}
-              className="border-white/30 data-[state=checked]:bg-purple-500"
+              className="border-white/30 data-[state=checked]:bg-blue-500"
             />
             <Label htmlFor="include-original" className="text-white/80 text-sm">
               Include original text
@@ -339,7 +339,7 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ project, onExportComplete }) 
               id="separate-files"
               checked={separateFiles}
               onCheckedChange={(checked) => setSeparateFiles(checked === true)}
-              className="border-white/30 data-[state=checked]:bg-purple-500"
+              className="border-white/30 data-[state=checked]:bg-blue-500"
             />
             <Label htmlFor="separate-files" className="text-white/80 text-sm">
               Export as separate files (one per language)

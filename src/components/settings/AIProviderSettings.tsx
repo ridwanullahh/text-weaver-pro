@@ -347,7 +347,7 @@ const AIProviderSettings = () => {
           <div className="pt-4">
             <Button
               onClick={saveProviderPreferences}
-              className="bg-purple-500 hover:bg-purple-600"
+              className="bg-blue-500 hover:bg-blue-600"
             >
               Save Preferences
             </Button>

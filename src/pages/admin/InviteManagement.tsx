@@ -140,7 +140,7 @@ const InviteManagement = () => {
         </div>
         <Button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-gradient-to-r from-purple-500 to-blue-500"
+          className="bg-gradient-to-r from-blue-500 to-cyan-500"
         >
           <UserPlus className="w-4 h-4 mr-2" />
           Create Invite
@@ -198,7 +198,7 @@ const InviteManagement = () => {
               <div className="flex gap-2">
                 <Button
                   onClick={createInvite}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500"
+                  className="bg-gradient-to-r from-blue-500 to-cyan-500"
                   disabled={!newInvite.email}
                 >
                   <Send className="w-4 h-4 mr-2" />
@@ -230,7 +230,7 @@ const InviteManagement = () => {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full flex items-center justify-center">
                       <Mail className="w-6 h-6 text-white" />
                     </div>
                     <div>
