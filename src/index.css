@@ -1,0 +1,219 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* New Brand Design System */
+@layer base {
+  :root {
+    /* Brand Colors */
+    --primary: 145 88% 36%; /* #05B34D Primary Green */
+    --primary-foreground: 0 0% 100%; /* White */
+    
+    --accent: 45 90% 54%; /* #F2B91C Digital Gold */
+    --accent-foreground: 210 20% 15%; /* Dark text on gold */
+    
+    --secondary: 145 88% 96%; /* Light mint derived from primary */
+    --secondary-foreground: 145 88% 20%; /* Darker green */
+    
+    /* Backgrounds */
+    --background: 145 60% 96%; /* #E9FBF1 Minted Glow */
+    --foreground: 210 20% 15%; /* #181F25 Midnight Slate */
+    
+    --card: 0 0% 100%; /* Pure White */
+    --card-foreground: 210 20% 15%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 20% 15%;
+    
+    /* UI Elements */
+    --muted: 145 30% 90%;
+    --muted-foreground: 145 20% 45%;
+    
+    --border: 145 30% 85%;
+    --input: 145 30% 85%;
+    --ring: 145 88% 36%;
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --radius: 1rem; /* More rounded for mobile app feel */
+    
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 210 20% 15%;
+    --sidebar-primary: 145 88% 36%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 145 30% 90%;
+    --sidebar-accent-foreground: 145 88% 20%;
+    --sidebar-border: 145 30% 85%;
+    --sidebar-ring: 145 88% 36%;
+  }
+
+  .dark {
+    /* Dark Mode Support */
+    --background: 210 20% 7%; /* Dark version of Midnight Slate */
+    --foreground: 0 0% 98%;
+    
+    --card: 210 20% 10%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 210 20% 10%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 145 88% 45%; /* Slightly brighter green for dark mode */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 210 20% 15%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 210 20% 15%;
+    --muted-foreground: 210 10% 65%;
+    
+    --accent: 45 90% 60%; /* Brighter gold for dark mode */
+    --accent-foreground: 210 20% 10%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 210 20% 20%;
+    --input: 210 20% 20%;
+    --ring: 145 88% 45%;
+    
+    --sidebar-background: 210 20% 8%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 145 88% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 210 20% 20%;
+    --sidebar-ring: 145 88% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Mobile App-like Scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/80;
+  }
+}
+
+/* Mobile App-like Components */
+@layer components {
+  .app-container {
+    @apply max-w-md mx-auto bg-card min-h-screen relative overflow-hidden;
+  }
+  
+  .glass-effect {
+    @apply bg-white/80 dark:bg-card/80 backdrop-blur-xl border border-white/20;
+  }
+  
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  }
+  
+  .gradient-card {
+    background: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
+  }
+  
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-card/95 backdrop-blur-xl border-t border-border z-50;
+  }
+  
+  .mobile-header {
+    @apply sticky top-0 z-40 bg-card/95 backdrop-blur-xl border-b border-border;
+  }
+  
+  .floating-action {
+    @apply fixed bottom-20 right-4 w-14 h-14 rounded-full gradient-primary shadow-lg shadow-primary/25 flex items-center justify-center text-primary-foreground;
+  }
+}
+
+/* Enhanced Animations */
+@layer utilities {
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+  
+  .animate-fade-in-up {
+    animation: fadeInUp 0.4s ease-out;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
